@@ -9,6 +9,9 @@ const inter = Inter({ subsets: ['latin'] })
 export const metadata: Metadata = {
   title: 'BlockX DEx',
   description: 'Decentralized Exchange on BlockX Network',
+  icons: {
+    icon: '/logo.jpg',
+  },
 }
 
 export default function RootLayout({

@@ -16,8 +16,8 @@ export default function PositionsPage() {
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
   const [showIncreaseModal, setShowIncreaseModal] = useState(false)
   const [selectedPosition, setSelectedPosition] = useState<any>(null)
-  const [increaseAmount0, setIncreaseAmount0] = useState('')
-  const [increaseAmount1, setIncreaseAmount1] = useState('')
+  const [increaseAmount0, setIncreaseAmount0] = useState('0')
+  const [increaseAmount1, setIncreaseAmount1] = useState('0')
 
   const positionService = new PositionService(publicClient, walletClient)
 
@@ -65,15 +65,14 @@ export default function PositionsPage() {
 
     try {
       const txHash = await positionService.increaseLiquidity({
-        tokenId: selectedPosition.tokenId,
-        amount0Desired: increaseAmount0,
-        amount1Desired: increaseAmount1,
-        amount0Min: (parseFloat(increaseAmount0) * 0.95).toString(),
-        amount1Min: (parseFloat(increaseAmount1) * 0.95).toString(),
-        deadline: 20,
-        recipient: userAddress,
+      tokenId: selectedPosition.tokenId,
+      amount0Desired: increaseAmount0,
+      amount1Desired: increaseAmount1,
+      amount0Min: (parseFloat("1")).toString(),
+      amount1Min: (parseFloat("1")).toString(),
+      deadline: Math.floor(Date.now() / 1000) + 6000, // Set deadline to 6000 seconds from now
+      recipient: userAddress,
       })
-      
       setSuccessMessage(`Liquidity increased! Transaction: ${txHash}`)
       handleCloseIncreaseModal()
       fetchPositions()

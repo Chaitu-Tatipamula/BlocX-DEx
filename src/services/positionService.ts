@@ -146,7 +146,6 @@ export class PositionService {
         })
         await this.publicClient.waitForTransactionReceipt({ hash: approveHash1 })
       }
-
       const hash = await this.walletClient.writeContract({
         address: CONTRACT_ADDRESSES.NONFUNGIBLE_POSITION_MANAGER,
         abi: NONFUNGIBLE_POSITION_MANAGER_ABI,
@@ -160,21 +159,28 @@ export class PositionService {
           deadline: BigInt(deadlineTimestamp),
         }],
       })
-
       // Wait for transaction confirmation with timeout
       const receipt = await this.publicClient.waitForTransactionReceipt({ 
         hash,
-        timeout: 120000 // 2 minutes timeout
       })
-      
+
       // Check if transaction was successful
       if (receipt.status !== 'success') {
         throw new Error('Transaction failed during execution')
       }
+      else{
+        console.log("Successfully increased liquidity")
+      }
       return hash
-    } catch (error) {
-      throw new Error(`Failed to increase liquidity: ${error instanceof Error ? error.message : 'Unknown error'}`)
-    }
+    } catch (error: any) {
+    console.error('Detailed error:', {
+      message: error.message,
+      code: error.code,
+      data: error.data,
+      reason: error.reason
+    })
+    throw error;
+  }
   }
 
   async removeLiquidity(

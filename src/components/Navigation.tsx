@@ -11,6 +11,7 @@ export function Navigation() {
   const navItems = [
     { href: '/swap', label: 'Swap' },
     { href: '/liquidity', label: 'Add Liquidity' },
+    { href: '/pools', label: 'Pools' },
     { href: '/positions', label: 'My Positions' },
   ]
 

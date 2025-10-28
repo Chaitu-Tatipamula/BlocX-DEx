@@ -1,6 +1,6 @@
 import { parseUnits, formatUnits, type Address } from 'viem'
-import { CONTRACT_ADDRESSES, ROUTER_ABI, SWAP_ROUTER_ABI, QUOTER_V2_ABI, ERC20_ABI, WETH_ABI } from './contracts'
-import { tokens } from '../config/tokens'
+import { CONTRACT_ADDRESSES, ROUTER_ABI, SWAP_ROUTER_ABI, QUOTER_V2_ABI, ERC20_ABI, WETH_ABI, FACTORY_ABI } from './contracts'
+import { tokens, type Token } from '../config/tokens'
 
 export interface SwapParams {
   tokenIn: string
@@ -16,6 +16,71 @@ export interface SwapQuote {
   priceImpact: number
   minimumReceived: string
 }
+
+export async function checkPoolExists(
+  publicClient: any,
+  token0: string,
+  token1: string,
+  fee: number
+): Promise<boolean> {
+  try {
+    const poolAddress = await publicClient.readContract({
+      address: CONTRACT_ADDRESSES.FACTORY,
+      abi: FACTORY_ABI,
+      functionName: 'getPool',
+      args: [token0, token1, fee],
+    })
+    
+    return poolAddress !== '0x0000000000000000000000000000000000000000'
+  } catch (error) {
+    console.log('Error checking pool existence:', error)
+    return false
+  }
+}
+
+export async function checkPoolLiquidity(
+  publicClient: any,
+  token0: string,
+  token1: string,
+  fee: number
+): Promise<{ hasLiquidity: boolean; liquidity: string }> {
+  try {
+    const poolAddress = await publicClient.readContract({
+      address: CONTRACT_ADDRESSES.FACTORY,
+      abi: FACTORY_ABI,
+      functionName: 'getPool',
+      args: [token0, token1, fee],
+    })
+    
+    if (poolAddress === '0x0000000000000000000000000000000000000000') {
+      return { hasLiquidity: false, liquidity: '0' }
+    }
+    
+    // Check if pool has liquidity by reading the liquidity value
+    const liquidity = await publicClient.readContract({
+      address: poolAddress,
+      abi: [
+        {
+          inputs: [],
+          name: 'liquidity',
+          outputs: [{ internalType: 'uint128', name: '', type: 'uint128' }],
+          stateMutability: 'view',
+          type: 'function',
+        },
+      ],
+      functionName: 'liquidity',
+    })
+    
+    const hasLiquidity = liquidity > BigInt(0)
+    console.log(`Pool liquidity check: ${hasLiquidity ? 'HAS' : 'NO'} liquidity (${liquidity.toString()})`)
+    
+    return { hasLiquidity, liquidity: liquidity.toString() }
+  } catch (error) {
+    console.log('Error checking pool liquidity:', error)
+    return { hasLiquidity: false, liquidity: '0' }
+  }
+}
+
 
 export async function getQuote(
   publicClient: any,
@@ -36,10 +101,16 @@ export async function getQuote(
       }
     }
     
-    // Use QuoterV2 for PancakeSwap V3 quotes
     const amountInWei = parseUnits(amountIn, 18)
     const fee = 500 // 0.05% fee tier
     
+    // Check if V3 pool exists and has liquidity for better debugging
+    const v3PoolExists = await checkPoolExists(publicClient, tokenInAddress, tokenOutAddress, fee)
+    const v3PoolLiquidity = await checkPoolLiquidity(publicClient, tokenInAddress, tokenOutAddress, fee)
+    console.log(`V3 pool exists for ${tokenIn} → ${tokenOut}:`, v3PoolExists)
+    console.log(`V3 pool has liquidity:`, v3PoolLiquidity.hasLiquidity, `(${v3PoolLiquidity.liquidity})`)
+    
+    // Try V3 QuoterV2 first
     try {
       const quote = await publicClient.readContract({
         address: CONTRACT_ADDRESSES.QUOTER_V2,
@@ -57,29 +128,51 @@ export async function getQuote(
       const [amountOut] = quote as [bigint, bigint, number, bigint]
       const amountOutFormatted = formatUnits(amountOut, 18)
       
+      console.log(`V3 quote successful: ${amountIn} ${tokenIn} → ${amountOutFormatted} ${tokenOut}`)
+      
       return {
         amountOut: amountOutFormatted,
         priceImpact: 0.1, // Simplified calculation
         minimumReceived: amountOutFormatted,
       }
     } catch (quoterError) {
-      console.log('QuoterV2 failed, trying V2 router...')
+      console.log('QuoterV2 failed, trying V2 router...', quoterError)
       
-      // Fallback to V2 router if V3 pool doesn't exist
-      const path = [tokenInAddress, tokenOutAddress]
-      const amounts = await publicClient.readContract({
-        address: CONTRACT_ADDRESSES.ROUTER,
-        abi: ROUTER_ABI,
-        functionName: 'getAmountsOut',
-        args: [amountInWei, path],
-      })
-      
-      const amountOut = formatUnits(amounts[1], 18)
-      
-      return {
-        amountOut,
-        priceImpact: 0.1,
-        minimumReceived: amountOut,
+      // Fallback to V2 router - nested try-catch
+      try {
+        const path = [tokenInAddress, tokenOutAddress]
+        const amounts = await publicClient.readContract({
+          address: CONTRACT_ADDRESSES.ROUTER,
+          abi: ROUTER_ABI,
+          functionName: 'getAmountsOut',
+          args: [amountInWei, path],
+        })
+        
+        const amountOut = formatUnits(amounts[1], 18)
+        
+        console.log(`V2 quote successful: ${amountIn} ${tokenIn} → ${amountOut} ${tokenOut}`)
+        
+        return {
+          amountOut,
+          priceImpact: 0.1,
+          minimumReceived: amountOut,
+        }
+      } catch (v2Error) {
+        console.error('V2 router also failed:', v2Error)
+        
+        // Provide detailed error message based on what we know
+        let errorMessage = 'No liquidity pool found for this pair.'
+        if (v3PoolExists) {
+          if (v3PoolLiquidity.hasLiquidity) {
+            errorMessage = `V3 pool exists with liquidity but both QuoterV2 and V2 router failed. This might be a contract issue or the liquidity is outside the current price range.`
+          } else {
+            errorMessage = `V3 pool exists but has NO liquidity (${v3PoolLiquidity.liquidity}). The pool contract was created but no tokens have been added to it. Please add liquidity to the ${tokenIn} → ${tokenOut} pool first.`
+          }
+        } else {
+          errorMessage = `No V3 pool exists and V2 router also failed. Please create a liquidity pool for ${tokenIn} → ${tokenOut}.`
+        }
+        
+        throw new Error(errorMessage)
       }
     }
   } catch (error) {
@@ -245,4 +338,60 @@ export function calculatePriceImpact(
   const priceAfter = outputValue / inputValue
   
   return ((priceAfter - priceBefore) / priceBefore) * 100
+}
+
+export async function wrapBCX(
+  walletClient: any,
+  amount: string
+): Promise<string> {
+  try {
+    const amountWei = parseUnits(amount, 18)
+    
+    const hash = await walletClient.writeContract({
+      address: tokens.WBCX.address as Address,
+      abi: WETH_ABI,
+      functionName: 'deposit',
+      value: amountWei,
+    })
+    
+    return hash
+  } catch (error) {
+    console.error('Error wrapping BCX:', error)
+    throw new Error(`Failed to wrap BCX: ${error instanceof Error ? error.message : 'Unknown error'}`)
+  }
+}
+
+export async function unwrapWBCX(
+  walletClient: any,
+  amount: string
+): Promise<string> {
+  try {
+    const amountWei = parseUnits(amount, 18)
+    
+    const hash = await walletClient.writeContract({
+      address: tokens.WBCX.address as Address,
+      abi: WETH_ABI,
+      functionName: 'withdraw',
+      args: [amountWei],
+    })
+    
+    return hash
+  } catch (error) {
+    console.error('Error unwrapping WBCX:', error)
+    throw new Error(`Failed to unwrap WBCX: ${error instanceof Error ? error.message : 'Unknown error'}`)
+  }
+}
+
+export function isWrapUnwrapOperation(tokenIn: Token | null, tokenOut: Token | null): 'wrap' | 'unwrap' | null {
+  if (!tokenIn || !tokenOut) return null
+  
+  if (tokenIn.symbol === 'BCX' && tokenOut.symbol === 'WBCX') {
+    return 'wrap'
+  }
+  
+  if (tokenIn.symbol === 'WBCX' && tokenOut.symbol === 'BCX') {
+    return 'unwrap'
+  }
+  
+  return null
 }

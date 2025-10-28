@@ -1,6 +1,6 @@
 'use client'
 
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import { ConnectButton } from '@rainbow-me/rainbowkit'
 import { useAccount, useBalance } from 'wagmi'
 import { formatAddress, formatBalance } from '@/lib/utils'
@@ -10,6 +10,16 @@ export function WalletButton() {
   const { data: balance } = useBalance({
     address,
   })
+  const [isMounted, setIsMounted] = useState(false)
+
+  // Prevent hydration mismatch by only rendering after mount
+  useEffect(() => {
+    setIsMounted(true)
+  }, [])
+
+  if (!isMounted) {
+    return <ConnectButton />
+  }
 
   if (!isConnected) {
     return <ConnectButton />

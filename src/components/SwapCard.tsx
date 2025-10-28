@@ -2,11 +2,12 @@
 
 import React, { useState, useEffect, useCallback } from 'react'
 import { useAccount, usePublicClient, useWalletClient } from 'wagmi'
-import { ArrowUpDown, Settings, Loader2 } from 'lucide-react'
+import { ArrowUpDown, Settings, Loader2, CheckCircle, AlertTriangle, XCircle, Plus, Droplets } from 'lucide-react'
 import { TokenSelector } from './TokenSelector'
 import { SettingsModal } from './SettingsModal'
+import { SwapPreview } from './SwapPreview'
 import { tokens, type Token } from '@/config/tokens'
-import { getQuote, getTokenBalance, executeSwap, approveToken, getTokenAllowance } from '@/lib/swap'
+import { getQuote, getTokenBalance, executeSwap, approveToken, getTokenAllowance, wrapBCX, unwrapWBCX, isWrapUnwrapOperation, checkPoolExists, checkPoolLiquidity } from '@/lib/swap'
 import { formatBalance, formatPriceImpact, getPriceImpactColor } from '@/lib/utils'
 
 const DEFAULT_SLIPPAGE = 0.5
@@ -23,6 +24,9 @@ export function SwapCard() {
   const [amountIn, setAmountIn] = useState('')
   const [amountOut, setAmountOut] = useState('')
   const [priceImpact, setPriceImpact] = useState(0)
+  const [minimumReceived, setMinimumReceived] = useState('')
+  const [exchangeRate, setExchangeRate] = useState('')
+  const [fee, setFee] = useState('0.05%')
   const [isLoading, setIsLoading] = useState(false)
   const [isQuoteLoading, setIsQuoteLoading] = useState(false)
   const [error, setError] = useState('')
@@ -33,6 +37,11 @@ export function SwapCard() {
   // Balances
   const [tokenInBalance, setTokenInBalance] = useState('0')
   const [tokenOutBalance, setTokenOutBalance] = useState('0')
+  
+  // Pool status
+  const [poolExists, setPoolExists] = useState<boolean | null>(null)
+  const [poolLiquidity, setPoolLiquidity] = useState<{ hasLiquidity: boolean; liquidity: string } | null>(null)
+  const [poolStatus, setPoolStatus] = useState<'checking' | 'exists' | 'no-liquidity' | 'not-exists' | null>(null)
 
   // Get token balances
   const fetchBalances = useCallback(async () => {
@@ -53,12 +62,68 @@ export function SwapCard() {
     }
   }, [address, publicClient, tokenIn?.address, tokenIn?.symbol, tokenOut?.address, tokenOut?.symbol])
 
+  // Check pool status
+  const checkPoolStatus = useCallback(async () => {
+    if (!tokenIn || !tokenOut || !publicClient) {
+      setPoolStatus(null)
+      setPoolExists(null)
+      setPoolLiquidity(null)
+      return
+    }
+
+    // Skip for wrap/unwrap operations
+    const wrapUnwrapType = isWrapUnwrapOperation(tokenIn, tokenOut)
+    if (wrapUnwrapType) {
+      setPoolStatus('exists')
+      setPoolExists(true)
+      setPoolLiquidity({ hasLiquidity: true, liquidity: '∞' })
+      return
+    }
+
+    setPoolStatus('checking')
+    
+    try {
+      const tokenInAddress = tokenIn.symbol === 'BCX' ? tokens.WBCX.address : tokenIn.address
+      const tokenOutAddress = tokenOut.symbol === 'BCX' ? tokens.WBCX.address : tokenOut.address
+      const fee = 500
+
+      const exists = await checkPoolExists(publicClient, tokenInAddress, tokenOutAddress, fee)
+      setPoolExists(exists)
+
+      if (exists) {
+        const liquidity = await checkPoolLiquidity(publicClient, tokenInAddress, tokenOutAddress, fee)
+        setPoolLiquidity(liquidity)
+        setPoolStatus(liquidity.hasLiquidity ? 'exists' : 'no-liquidity')
+      } else {
+        setPoolLiquidity({ hasLiquidity: false, liquidity: '0' })
+        setPoolStatus('not-exists')
+      }
+    } catch (error) {
+      console.error('Error checking pool status:', error)
+      setPoolStatus('not-exists')
+    }
+  }, [tokenIn, tokenOut, publicClient])
+
   // Get quote when amount changes
   useEffect(() => {
     const getQuoteData = async () => {
       if (!amountIn || !tokenIn || !tokenOut || !publicClient) {
         setAmountOut('')
         setPriceImpact(0)
+        return
+      }
+
+      // Check if this is a wrap/unwrap operation
+      const wrapUnwrapType = isWrapUnwrapOperation(tokenIn, tokenOut)
+      
+      if (wrapUnwrapType === 'wrap' || wrapUnwrapType === 'unwrap') {
+        // For wrap/unwrap, output amount equals input amount (1:1)
+        setAmountOut(amountIn)
+        setPriceImpact(0)
+        setMinimumReceived(amountIn)
+        setExchangeRate('1.00')
+        setFee('0%')
+        setError('')
         return
       }
 
@@ -75,10 +140,20 @@ export function SwapCard() {
         
         setAmountOut(quote.amountOut)
         setPriceImpact(quote.priceImpact)
+        setMinimumReceived(quote.minimumReceived)
+        
+        // Calculate exchange rate
+        const rate = parseFloat(amountOut) / parseFloat(amountIn)
+        setExchangeRate(rate.toFixed(6))
+        
+        // Calculate fee (simplified - in real implementation, get from pool)
+        setFee('0.05%')
       } catch (err) {
         setError('Failed to get quote')
         setAmountOut('')
         setPriceImpact(0)
+        setMinimumReceived('')
+        setExchangeRate('')
       } finally {
         setIsQuoteLoading(false)
       }
@@ -92,6 +167,11 @@ export function SwapCard() {
   useEffect(() => {
     fetchBalances()
   }, [fetchBalances])
+
+  // Check pool status when tokens change
+  useEffect(() => {
+    checkPoolStatus()
+  }, [checkPoolStatus])
 
   const handleSwapTokens = () => {
     setTokenIn(tokenOut)
@@ -119,6 +199,34 @@ export function SwapCard() {
     setError('')
 
     try {
+      // Check if this is a wrap/unwrap operation
+      const wrapUnwrapType = isWrapUnwrapOperation(tokenIn, tokenOut)
+      
+      if (wrapUnwrapType === 'wrap') {
+        // Wrap BCX to WBCX
+        const wrapHash = await wrapBCX(walletClient, amountIn)
+        await publicClient.waitForTransactionReceipt({ hash: wrapHash as `0x${string}` })
+        
+        // Reset form and refresh balances
+        setAmountIn('')
+        setAmountOut('')
+        fetchBalances()
+        return
+      }
+      
+      if (wrapUnwrapType === 'unwrap') {
+        // Unwrap WBCX to BCX
+        const unwrapHash = await unwrapWBCX(walletClient, amountIn)
+        await publicClient.waitForTransactionReceipt({ hash: unwrapHash as `0x${string}` })
+        
+        // Reset form and refresh balances
+        setAmountIn('')
+        setAmountOut('')
+        fetchBalances()
+        return
+      }
+
+      // Regular swap operation
       // Check if token approval is needed
       if (tokenIn.address !== '0x0000000000000000000000000000000000000000') {
         const allowance = await getTokenAllowance(publicClient, tokenIn.address, address)
@@ -150,16 +258,17 @@ export function SwapCard() {
       fetchBalances()
       
     } catch (err: any) {
-      setError(err.message || 'Swap failed')
+      setError(err.message || 'Operation failed')
     } finally {
       setIsLoading(false)
     }
   }
 
+  const wrapUnwrapType = isWrapUnwrapOperation(tokenIn, tokenOut)
   const canSwap = isConnected && amountIn && amountOut && !isLoading && !isQuoteLoading && !error
 
   return (
-    <div className="w-full max-w-md mx-auto bg-white rounded-2xl shadow-xl border border-gray-200">
+    <div className="w-full max-w-2xl mx-auto bg-white rounded-2xl shadow-xl border border-gray-200">
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b border-gray-200">
         <h1 className="text-xl font-semibold">Swap</h1>
@@ -171,8 +280,9 @@ export function SwapCard() {
         </button>
       </div>
 
-      {/* Swap Form */}
-      <div className="p-4 space-y-4">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 p-4">
+        {/* Left Column - Swap Form */}
+        <div className="space-y-4">
         {/* From Token */}
         <div>
           <div className="flex items-center justify-between mb-2">
@@ -255,6 +365,52 @@ export function SwapCard() {
           </div>
         )}
 
+        {/* Pool Status Indicator */}
+        {poolStatus && (
+          <div className="text-sm">
+            {poolStatus === 'checking' && (
+              <div className="flex items-center gap-2 text-blue-600">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>Checking pool status...</span>
+              </div>
+            )}
+            
+            {poolStatus === 'exists' && (
+              <div className="flex items-center gap-2 text-green-600 bg-green-50 p-3 rounded-lg border border-green-200">
+                <CheckCircle className="w-5 h-5 text-green-500" />
+                <div className="flex-1">
+                  <div className="font-medium">Pool has liquidity</div>
+                  <div className="text-xs text-green-600 mt-1">Ready to swap</div>
+                </div>
+              </div>
+            )}
+            
+            {poolStatus === 'no-liquidity' && (
+              <div className="flex items-center gap-2 text-orange-600 bg-orange-50 p-3 rounded-lg border border-orange-200">
+                <AlertTriangle className="w-5 h-5 text-orange-500" />
+                <div className="flex-1">
+                  <div className="font-medium">Pool exists but has no liquidity</div>
+                  <div className="text-xs text-orange-600 mt-1">
+                    Add liquidity to the {tokenIn?.symbol} → {tokenOut?.symbol} pool first
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            {poolStatus === 'not-exists' && (
+              <div className="flex items-center gap-2 text-red-600 bg-red-50 p-3 rounded-lg border border-red-200">
+                <XCircle className="w-5 h-5 text-red-500" />
+                <div className="flex-1">
+                  <div className="font-medium">No liquidity pool found</div>
+                  <div className="text-xs text-red-600 mt-1">
+                    Create a pool for {tokenIn?.symbol} → {tokenOut?.symbol} to enable swaps
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Error Message */}
         {error && (
           <div className="text-sm text-red-500 bg-red-50 p-2 rounded-lg">
@@ -271,16 +427,78 @@ export function SwapCard() {
           {isLoading ? (
             <div className="flex items-center justify-center gap-2">
               <Loader2 className="w-4 h-4 animate-spin" />
-              Swapping...
+              {wrapUnwrapType === 'wrap' ? 'Wrapping...' : 
+               wrapUnwrapType === 'unwrap' ? 'Unwrapping...' : 'Swapping...'}
             </div>
           ) : !isConnected ? (
             'Connect Wallet'
           ) : !amountIn ? (
             'Enter Amount'
+          ) : wrapUnwrapType === 'wrap' ? (
+            'Wrap BCX'
+          ) : wrapUnwrapType === 'unwrap' ? (
+            'Unwrap WBCX'
           ) : (
             'Swap'
           )}
         </button>
+
+        {/* Create Pool Button - Show when no pool exists */}
+        {poolStatus === 'not-exists' && isConnected && (
+          <button
+            onClick={() => {
+              const params = new URLSearchParams({
+                token0: tokenIn?.address || '',
+                token1: tokenOut?.address || '',
+                token0Symbol: tokenIn?.symbol || '',
+                token1Symbol: tokenOut?.symbol || '',
+                action: 'create'
+              })
+              window.open(`/liquidity?${params.toString()}`, '_blank')
+            }}
+            className="w-full py-3 px-4 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors flex items-center justify-center gap-2"
+          >
+            <Plus className="w-4 h-4" />
+            Create {tokenIn?.symbol} → {tokenOut?.symbol} Pool
+          </button>
+        )}
+
+        {/* Add Liquidity Button - Show when pool exists but no liquidity */}
+        {poolStatus === 'no-liquidity' && isConnected && (
+          <button
+            onClick={() => {
+              const params = new URLSearchParams({
+                token0: tokenIn?.address || '',
+                token1: tokenOut?.address || '',
+                token0Symbol: tokenIn?.symbol || '',
+                token1Symbol: tokenOut?.symbol || '',
+                action: 'add'
+              })
+              window.open(`/liquidity?${params.toString()}`, '_blank')
+            }}
+            className="w-full py-3 px-4 bg-orange-600 text-white rounded-lg font-medium hover:bg-orange-700 transition-colors flex items-center justify-center gap-2"
+          >
+            <Droplets className="w-4 h-4" />
+            Add Liquidity to {tokenIn?.symbol} → {tokenOut?.symbol} Pool
+          </button>
+        )}
+        </div>
+
+        {/* Right Column - Swap Preview */}
+        <div className="lg:block">
+          <SwapPreview
+            tokenIn={tokenIn}
+            tokenOut={tokenOut}
+            amountIn={amountIn}
+            amountOut={amountOut}
+            priceImpact={priceImpact}
+            slippage={slippage}
+            minimumReceived={minimumReceived}
+            exchangeRate={exchangeRate}
+            fee={fee}
+            isLoading={isQuoteLoading}
+          />
+        </div>
       </div>
 
       {/* Settings Modal */}

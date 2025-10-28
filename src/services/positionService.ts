@@ -1,5 +1,5 @@
 import { parseUnits, formatUnits, type Address } from 'viem'
-import { CONTRACT_ADDRESSES, NONFUNGIBLE_POSITION_MANAGER_ABI, ERC20_ABI } from '@/lib/contracts'
+import { CONTRACT_ADDRESSES, NONFUNGIBLE_POSITION_MANAGER_ABI, ERC20_ABI, FACTORY_ABI, POOL_ABI } from '@/lib/contracts'
 
 export interface Position {
   tokenId: string
@@ -21,6 +21,10 @@ export interface IncreaseLiquidityParams {
   amount1Min: string
   deadline: number
   recipient: Address
+  // Add position's original tick range
+  tickLower?: number
+  tickUpper?: number
+  currentTick?: number
 }
 
 export class PositionService {
@@ -95,11 +99,7 @@ export class PositionService {
 
   async increaseLiquidity(params: IncreaseLiquidityParams): Promise<string> {
     try {
-      const { tokenId, amount0Desired, amount1Desired, amount0Min, amount1Min, deadline, recipient } = params
-      const amount0DesiredWei = parseUnits(amount0Desired, 18)
-      const amount1DesiredWei = parseUnits(amount1Desired, 18)
-      const amount0MinWei = parseUnits(amount0Min, 18)
-      const amount1MinWei = parseUnits(amount1Min, 18)
+      const { tokenId, amount0Desired, amount1Desired, amount0Min, amount1Min, deadline, recipient, tickLower, tickUpper, currentTick } = params
       const deadlineTimestamp = Math.floor(Date.now() / 1000) + deadline * 60
 
       // First, get the position details to know which tokens to approve
@@ -110,7 +110,98 @@ export class PositionService {
         args: [BigInt(tokenId)],
       })
 
-      const [, , token0, token1] = position as any[]
+      const [, , token0, token1, fee, tickLowerFromContract, tickUpperFromContract, liquidity] = position as any[]
+      
+      console.log('Position details from contract:', {
+        token0,
+        token1,
+        fee,
+        tickLower: Number(tickLowerFromContract),
+        tickUpper: Number(tickUpperFromContract),
+        liquidity: liquidity.toString()
+      })
+      
+      // Check if position has any liquidity
+      if (liquidity === BigInt(0)) {
+        throw new Error('Position has no liquidity. You cannot increase liquidity for empty positions.')
+      }
+      
+      // Use the position's original tick range if not provided
+      const finalTickLower = tickLower ?? Number(tickLowerFromContract)
+      const finalTickUpper = tickUpper ?? Number(tickUpperFromContract)
+      
+      // Check if position is in range
+      if (currentTick !== undefined) {
+        const isInRange = currentTick >= finalTickLower && currentTick <= finalTickUpper
+        console.log('Position range check:', {
+          currentTick,
+          tickLower: finalTickLower,
+          tickUpper: finalTickUpper,
+          isInRange
+        })
+        
+        if (!isInRange) {
+          throw new Error(`Position is out of range. Current tick ${currentTick} is outside range [${finalTickLower}, ${finalTickUpper}]. You cannot increase liquidity for out-of-range positions.`)
+        }
+      }
+      
+      // If we have currentTick and tick range, calculate optimal amounts
+      let finalAmount0Desired = amount0Desired
+      let finalAmount1Desired = amount1Desired
+      
+      if (currentTick !== undefined && finalTickLower !== undefined && finalTickUpper !== undefined) {
+        // Import the position analysis functions
+        const { calculateLiquidityAmounts } = await import('../lib/positionAnalysis')
+        
+        // Calculate optimal amounts based on the position's tick range
+        const { amount0, amount1 } = calculateLiquidityAmounts(
+          amount0Desired,
+          amount1Desired,
+          currentTick,
+          finalTickLower,
+          finalTickUpper
+        )
+        
+        finalAmount0Desired = amount0
+        finalAmount1Desired = amount1
+      }
+      
+      const amount0DesiredWei = parseUnits(finalAmount0Desired, 18)
+      const amount1DesiredWei = parseUnits(finalAmount1Desired, 18)
+      const amount0MinWei = parseUnits(amount0Min, 18)
+      const amount1MinWei = parseUnits(amount1Min, 18)
+
+      // Check token balances before attempting transaction
+      const balance0 = await this.publicClient.readContract({
+        address: token0,
+        abi: ERC20_ABI,
+        functionName: 'balanceOf',
+        args: [recipient],
+      })
+
+      const balance1 = await this.publicClient.readContract({
+        address: token1,
+        abi: ERC20_ABI,
+        functionName: 'balanceOf',
+        args: [recipient],
+      })
+
+      console.log('Token balances check:', {
+        token0Balance: balance0.toString(),
+        token1Balance: balance1.toString(),
+        amount0Desired: amount0DesiredWei.toString(),
+        amount1Desired: amount1DesiredWei.toString(),
+        hasEnoughToken0: balance0 >= amount0DesiredWei,
+        hasEnoughToken1: balance1 >= amount1DesiredWei
+      })
+
+      if (balance0 < amount0DesiredWei) {
+        throw new Error(`Insufficient ${token0} balance. Required: ${finalAmount0Desired}, Available: ${formatUnits(balance0, 18)}`)
+      }
+
+      if (balance1 < amount1DesiredWei) {
+        throw new Error(`Insufficient ${token1} balance. Required: ${finalAmount1Desired}, Available: ${formatUnits(balance1, 18)}`)
+      }
 
       // Approve tokens for the position manager
       const token0Contract = { address: token0, abi: ERC20_ABI }
@@ -146,6 +237,17 @@ export class PositionService {
         })
         await this.publicClient.waitForTransactionReceipt({ hash: approveHash1 })
       }
+      console.log('Attempting to increase liquidity with params:', {
+        tokenId,
+        amount0Desired: finalAmount0Desired,
+        amount1Desired: finalAmount1Desired,
+        amount0Min,
+        amount1Min,
+        tickLower: finalTickLower,
+        tickUpper: finalTickUpper,
+        currentTick
+      })
+
       const hash = await this.walletClient.writeContract({
         address: CONTRACT_ADDRESSES.NONFUNGIBLE_POSITION_MANAGER,
         abi: NONFUNGIBLE_POSITION_MANAGER_ABI,
@@ -159,13 +261,26 @@ export class PositionService {
           deadline: BigInt(deadlineTimestamp),
         }],
       })
+      
+      console.log('Transaction submitted:', hash)
+      
       // Wait for transaction confirmation with timeout
       const receipt = await this.publicClient.waitForTransactionReceipt({ 
         hash,
+        timeout: 120000 // 2 minutes timeout
       })
+
+      console.log('Transaction receipt:', receipt)
 
       // Check if transaction was successful
       if (receipt.status !== 'success') {
+        // Try to get more details about the failure
+        try {
+          const tx = await this.publicClient.getTransaction({ hash })
+          console.log('Failed transaction details:', tx)
+        } catch (txError) {
+          console.log('Could not fetch transaction details:', txError)
+        }
         throw new Error('Transaction failed during execution')
       }
       else{
@@ -268,6 +383,46 @@ export class PositionService {
       return hash
     } catch (error) {
       throw new Error(`Failed to burn position: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
+  }
+
+  async getPoolAddress(token0: string, token1: string, fee: number): Promise<string> {
+    try {
+      const poolAddress = await this.publicClient.readContract({
+        address: CONTRACT_ADDRESSES.FACTORY,
+        abi: FACTORY_ABI,
+        functionName: 'getPool',
+        args: [token0, token1, fee],
+      })
+
+      return poolAddress as string
+    } catch (error) {
+      console.error('Error getting pool address:', error)
+      return '0x0000000000000000000000000000000000000000'
+    }
+  }
+
+  async getPoolData(poolAddress: string): Promise<{ currentTick: number; currentPrice: number; liquidity: string }> {
+    try {
+      const poolData = await this.publicClient.readContract({
+        address: poolAddress as Address,
+        abi: POOL_ABI,
+        functionName: 'slot0',
+      })
+
+      const [sqrtPriceX96, tick, , , ,] = poolData as any[]
+      
+      // Convert sqrtPriceX96 to price
+      const price = Number(sqrtPriceX96) ** 2 / (2 ** 192)
+      
+      return {
+        currentTick: Number(tick),
+        currentPrice: price,
+        liquidity: '0', // Would need to call liquidity() function separately
+      }
+    } catch (error) {
+      console.error('Error getting pool data:', error)
+      throw new Error(`Failed to get pool data: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
   }
 }

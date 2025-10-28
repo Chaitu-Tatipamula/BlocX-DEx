@@ -10,21 +10,29 @@ interface TokenSelectorProps {
   onTokenSelect: (token: Token) => void
   balance?: string
   disabled?: boolean
+  excludeBCX?: boolean // New prop to exclude BCX for liquidity operations
 }
 
 export function TokenSelector({ 
   selectedToken, 
   onTokenSelect, 
   balance = '0',
-  disabled = false 
+  disabled = false,
+  excludeBCX = false
 }: TokenSelectorProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
 
-  const filteredTokens = tokenList.filter(token =>
-    token.symbol.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    token.name.toLowerCase().includes(searchTerm.toLowerCase())
-  )
+  const filteredTokens = tokenList.filter(token => {
+    // Filter by search term
+    const matchesSearch = token.symbol.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      token.name.toLowerCase().includes(searchTerm.toLowerCase())
+    
+    // Exclude BCX if requested (for liquidity operations)
+    const isNotBCX = !excludeBCX || token.symbol !== 'BCX'
+    
+    return matchesSearch && isNotBCX
+  })
 
   return (
     <div className="relative">

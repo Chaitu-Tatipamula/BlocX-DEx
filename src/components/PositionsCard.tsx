@@ -268,7 +268,7 @@ export function PositionsCard() {
 
         {/* Error Message */}
         {error && (
-          <div className="mt-4 text-sm text-red-500 bg-red-50 p-2 rounded-lg">
+              <div className="text-sm text-red-500 bg-red-50 border border-red-200 p-2 rounded truncate">
             {error}
           </div>
         )}

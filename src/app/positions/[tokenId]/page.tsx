@@ -39,7 +39,7 @@ export default function PositionDetailPage({ params }: { params: Promise<{ token
     if (!address || !publicClient) return
 
     if (isRefresh) {
-      setIsRefreshing(true)
+      setIsRefreshing(false)
     } else {
       setIsLoading(true)
     }
@@ -102,8 +102,10 @@ export default function PositionDetailPage({ params }: { params: Promise<{ token
   }
 
   useEffect(() => {
+      if (!address || !publicClient) return
+
     fetchPositionDetails()
-  }, [tokenId, address, publicClient, walletClient])
+  }, [tokenId, address])
 
   const handleCollectFees = async () => {
     if (!walletClient || !address || !position) return

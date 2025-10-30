@@ -1,5 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+ 
   // Use webpack for development and production to avoid turbopack conflicts
   webpack: (config) => {
     config.resolve.fallback = {

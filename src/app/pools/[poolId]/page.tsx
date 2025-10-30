@@ -36,7 +36,14 @@ export default function PoolDetailPage({ params }: { params: Promise<{ poolId: s
         // For now, we'll show basic info
         // In production, you'd have better pool discovery mechanisms
 
-        setError('Pool details not available. Please use the pools list page.')
+      const poolService = new PoolService(publicClient)
+      const poolDetails = await poolService.getPoolByAddress(poolAddress)
+      
+      if (!poolDetails) {
+        throw new Error('Pool not found')
+      }
+
+      setPool(poolDetails)   
       } catch (err) {
         console.error('Error fetching pool data:', err)
         setError('Failed to load pool details')

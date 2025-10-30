@@ -286,6 +286,84 @@ Please check:
       throw error
     }
   }
+  /**
+   * Get pool details by direct pool address
+   */
+  async getPoolByAddress(poolAddress: string): Promise<PoolDetails | null> {
+    try {
+      // Read pool state
+      const [slot0, liquidity, poolToken0, poolToken1, poolFee, tickSpacing] = await Promise.all([
+        this.publicClient.readContract({
+          address: poolAddress as Address,
+          abi: POOL_ABI,
+          functionName: 'slot0',
+        }),
+        this.publicClient.readContract({
+          address: poolAddress as Address,
+          abi: POOL_ABI,
+          functionName: 'liquidity',
+        }),
+        this.publicClient.readContract({
+          address: poolAddress as Address,
+          abi: POOL_ABI,
+          functionName: 'token0',
+        }),
+        this.publicClient.readContract({
+          address: poolAddress as Address,
+          abi: POOL_ABI,
+          functionName: 'token1',
+        }),
+        this.publicClient.readContract({
+          address: poolAddress as Address,
+          abi: POOL_ABI,
+          functionName: 'fee',
+        }),
+        this.publicClient.readContract({
+          address: poolAddress as Address,
+          abi: POOL_ABI,
+          functionName: 'tickSpacing',
+        }),
+      ])
+
+      const [sqrtPriceX96, tick] = slot0 as [bigint, number, number, number, number, number, boolean]
+
+      // Find token objects
+      const token0 = Object.values(tokens).find(
+        (t) => t.address.toLowerCase() === (poolToken0 as string).toLowerCase()
+      ) || {
+        address: poolToken0 as string,
+        symbol: 'UNKNOWN',
+        name: 'Unknown Token',
+        decimals: 18,
+      }
+
+      const token1 = Object.values(tokens).find(
+        (t) => t.address.toLowerCase() === (poolToken1 as string).toLowerCase()
+      ) || {
+        address: poolToken1 as string,
+        symbol: 'UNKNOWN',
+        name: 'Unknown Token',
+        decimals: 18,
+      }
+
+      const currentPrice = sqrtPriceX96ToPrice(sqrtPriceX96)
+
+      return {
+        address: poolAddress,
+        token0,
+        token1,
+        fee: Number(poolFee),
+        currentTick: Number(tick),
+        currentPrice,
+        liquidity: liquidity.toString(),
+        sqrtPriceX96,
+        tickSpacing: Number(tickSpacing),
+      }
+    } catch (error) {
+      console.error('Error getting pool details by address:', error)
+      return null
+    }
+  }
 
   /**
    * Create pool if it doesn't exist

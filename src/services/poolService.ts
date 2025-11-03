@@ -198,7 +198,7 @@ export class PoolService {
   async getAllPools(): Promise<PoolDetails[]> {
     const pools: PoolDetails[] = []
     const tokenList = Object.values(tokens)
-    const fees = [100, 500, 3000, 10000]
+    const fees = [100, 500, 2500, 10000]
 
     // Check all combinations of tokens and fees
     for (let i = 0; i < tokenList.length; i++) {

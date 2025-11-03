@@ -10,7 +10,7 @@ const Q96 = BigInt(2) ** BigInt(96)
 
 /**
  * Get tick spacing for a given fee tier
- * @param fee Fee tier (100, 500, 3000, 10000)
+ * @param fee Fee tier (100, 500, 2500, 10000)
  * @returns Tick spacing
  */
 export function getTickSpacing(fee: number): number {
@@ -19,8 +19,8 @@ export function getTickSpacing(fee: number): number {
       return 1
     case 500: // 0.05%
       return 10
-    case 3000: // 0.3%
-      return 60
+    case 2500: // 0.25%
+      return 50
     case 10000: // 1%
       return 200
     default:

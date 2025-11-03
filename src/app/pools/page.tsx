@@ -57,7 +57,7 @@ export default function PoolsPage() {
         return 'bg-blue-100 text-blue-800'
       case 500:
         return 'bg-green-100 text-green-800'
-      case 3000:
+      case 2500:
         return 'bg-purple-100 text-purple-800'
       case 10000:
         return 'bg-orange-100 text-orange-800'

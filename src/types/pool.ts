@@ -69,9 +69,9 @@ export const FEE_TIERS: FeeTier[] = [
     description: 'Good for most pairs',
   },
   {
-    fee: 3000,
-    tickSpacing: 60,
-    label: '0.3%',
+    fee: 2500,
+    tickSpacing: 50,
+    label: '0.25%',
     description: 'Standard for volatile pairs',
   },
   {

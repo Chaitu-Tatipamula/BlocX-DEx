@@ -10,7 +10,7 @@ export const CONTRACT_ADDRESSES = {
 export const FEE_TIERS = {
   LOW: 100, // 0.01%
   MEDIUM: 500, // 0.05%
-  HIGH: 3000, // 0.3%
+    HIGH: 2500, // 0.25%
 } as const
 
 export const DEFAULT_FEE_TIER = FEE_TIERS.MEDIUM

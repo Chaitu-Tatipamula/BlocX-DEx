@@ -4,6 +4,7 @@ import React from 'react'
 import { getTokenDistribution, calculateLiquidityMultiplier } from '@/lib/positionAnalysis'
 import { priceToTick } from '@/lib/tickMath'
 import { formatPrice } from '@/lib/positionAnalysis'
+import { formatBalance } from '@/lib/utils'
 
 interface LiquidityPreviewProps {
   currentPrice: number
@@ -124,13 +125,13 @@ export function LiquidityPreview({
               <div className="flex justify-between text-sm">
                 <span className="text-gray-600">{token0Symbol}:</span>
                 <span className="font-medium text-gray-900">
-                  {amount0Num > 0 ? amount0Num.toFixed(6) : '0'}
+                  {amount0Num > 0 ? formatBalance(amount0Num.toString(), 6) : '0'}
                 </span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-gray-600">{token1Symbol}:</span>
                 <span className="font-medium text-gray-900">
-                  {amount1Num > 0 ? amount1Num.toFixed(6) : '0'}
+                  {amount1Num > 0 ? formatBalance(amount1Num.toString(), 6) : '0'}
                 </span>
               </div>
             </div>

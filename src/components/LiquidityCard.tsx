@@ -15,7 +15,7 @@ import { parseUnits, type Address } from 'viem'
 import { CONTRACT_ADDRESSES, NONFUNGIBLE_POSITION_MANAGER_ABI, ERC20_ABI } from '@/lib/contracts'
 import { PoolService } from '@/services/poolService'
 import { priceToTick, tickToPrice } from '@/lib/tickMath'
-import { calculateOptimalAmount } from '@/lib/positionAnalysis'
+import { calculateOptimalAmount, formatPrice } from '@/lib/positionAnalysis'
 
 export function LiquidityCard() {
   const { address, isConnected } = useAccount()
@@ -224,8 +224,12 @@ export function LiquidityCard() {
       return
     }
 
-    if (!amountA || !amountB || parseFloat(amountA) <= 0 || parseFloat(amountB) <= 0) {
-      setError('Please enter valid amounts')
+    // Allow one-sided positions (one amount can be 0)
+    const amountANum = parseFloat(amountA) || 0
+    const amountBNum = parseFloat(amountB) || 0
+    
+    if (amountANum <= 0 && amountBNum <= 0) {
+      setError('Please enter valid amounts (at least one token must be > 0)')
       return
     }
 
@@ -251,8 +255,9 @@ export function LiquidityCard() {
     setError('')
 
     try {
-      const amountADesiredWei = parseUnits(amountA, 18)
-      const amountBDesiredWei = parseUnits(amountB, 18)
+      // Handle one-sided positions (one amount can be 0)
+      const amountADesiredWei = amountANum > 0 ? parseUnits(amountA, 18) : BigInt(0)
+      const amountBDesiredWei = amountBNum > 0 ? parseUnits(amountB, 18) : BigInt(0)
       const deadlineTimestamp = Math.floor(Date.now() / 1000) + deadline * 60
 
       // Check if pool exists, create if needed
@@ -270,35 +275,73 @@ export function LiquidityCard() {
       const tokenAContract = { address: tokenA.address as Address, abi: ERC20_ABI }
       const tokenBContract = { address: tokenB.address as Address, abi: ERC20_ABI }
       
-      const allowanceA = await publicClient.readContract({
-        ...tokenAContract,
-        functionName: 'allowance',
-        args: [address, CONTRACT_ADDRESSES.NONFUNGIBLE_POSITION_MANAGER],
-      })
-      
-      if (allowanceA < amountADesiredWei) {
-        const approveHashA = await walletClient.writeContract({
+      // Only approve if amount > 0
+      if (amountANum > 0) {
+        const allowanceA = await publicClient.readContract({
           ...tokenAContract,
-          functionName: 'approve',
-          args: [CONTRACT_ADDRESSES.NONFUNGIBLE_POSITION_MANAGER, amountADesiredWei],
+          functionName: 'allowance',
+          args: [address, CONTRACT_ADDRESSES.NONFUNGIBLE_POSITION_MANAGER],
         })
-        await publicClient.waitForTransactionReceipt({ hash: approveHashA })
+        
+        if (allowanceA < amountADesiredWei) {
+          const approveHashA = await walletClient.writeContract({
+            ...tokenAContract,
+            functionName: 'approve',
+            args: [CONTRACT_ADDRESSES.NONFUNGIBLE_POSITION_MANAGER, amountADesiredWei],
+          })
+          await publicClient.waitForTransactionReceipt({ hash: approveHashA })
+        }
       }
       
-      const allowanceB = await publicClient.readContract({
-        ...tokenBContract,
-        functionName: 'allowance',
-        args: [address, CONTRACT_ADDRESSES.NONFUNGIBLE_POSITION_MANAGER],
-      })
-      
-      if (allowanceB < amountBDesiredWei) {
-        const approveHashB = await walletClient.writeContract({
+      // Only approve if amount > 0
+      if (amountBNum > 0) {
+        const allowanceB = await publicClient.readContract({
           ...tokenBContract,
-          functionName: 'approve',
-          args: [CONTRACT_ADDRESSES.NONFUNGIBLE_POSITION_MANAGER, amountBDesiredWei],
+          functionName: 'allowance',
+          args: [address, CONTRACT_ADDRESSES.NONFUNGIBLE_POSITION_MANAGER],
         })
-        await publicClient.waitForTransactionReceipt({ hash: approveHashB })
+        
+        if (allowanceB < amountBDesiredWei) {
+          const approveHashB = await walletClient.writeContract({
+            ...tokenBContract,
+            functionName: 'approve',
+            args: [CONTRACT_ADDRESSES.NONFUNGIBLE_POSITION_MANAGER, amountBDesiredWei],
+          })
+          await publicClient.waitForTransactionReceipt({ hash: approveHashB })
+        }
       }
+
+      // IMPORTANT: Uniswap V3 requires token0 < token1 (address comparison)
+      // Sort tokens and swap amounts accordingly
+      const token0Address = tokenA.address.toLowerCase() < tokenB.address.toLowerCase() 
+        ? tokenA.address as Address 
+        : tokenB.address as Address
+      const token1Address = tokenA.address.toLowerCase() < tokenB.address.toLowerCase() 
+        ? tokenB.address as Address 
+        : tokenA.address as Address
+      
+      // Swap amounts if tokens were swapped
+      const amount0Desired = tokenA.address.toLowerCase() < tokenB.address.toLowerCase()
+        ? amountADesiredWei
+        : amountBDesiredWei
+      const amount1Desired = tokenA.address.toLowerCase() < tokenB.address.toLowerCase()
+        ? amountBDesiredWei
+        : amountADesiredWei
+
+      // Validate ticks
+      if (minTick >= maxTick) {
+        throw new Error('Invalid tick range: minTick must be less than maxTick')
+      }
+
+      console.log('Minting position with:', {
+        token0: token0Address,
+        token1: token1Address,
+        fee: feeTier,
+        tickLower: minTick,
+        tickUpper: maxTick,
+        amount0Desired: amount0Desired.toString(),
+        amount1Desired: amount1Desired.toString(),
+      })
 
       // Mint position with custom tick range
       const hash = await walletClient.writeContract({
@@ -306,13 +349,13 @@ export function LiquidityCard() {
         abi: NONFUNGIBLE_POSITION_MANAGER_ABI,
         functionName: 'mint',
         args: [{
-          token0: tokenA.address as Address,
-          token1: tokenB.address as Address,
+          token0: token0Address,
+          token1: token1Address,
           fee: feeTier,
           tickLower: minTick,
           tickUpper: maxTick,
-          amount0Desired: amountADesiredWei,
-          amount1Desired: amountBDesiredWei,
+          amount0Desired: amount0Desired,
+          amount1Desired: amount1Desired,
           amount0Min: BigInt(0),
           amount1Min: BigInt(0),
           recipient: address,
@@ -331,13 +374,33 @@ export function LiquidityCard() {
       
     } catch (err: any) {
       console.error('Add liquidity error:', err)
-      setError(err.message || 'Add liquidity failed')
+      
+      // Provide more detailed error messages
+      let errorMessage = 'Add liquidity failed'
+      if (err?.message) {
+        errorMessage = err.message
+        // Check for common errors
+        if (err.message.includes('execution reverted')) {
+          errorMessage = 'Transaction failed. This could be due to:\n- Insufficient token balance\n- Invalid tick range\n- Pool not initialized\n- Token approval issues'
+        } else if (err.message.includes('user rejected')) {
+          errorMessage = 'Transaction was rejected'
+        } else if (err.message.includes('token0') || err.message.includes('token1')) {
+          errorMessage = `Token ordering error: ${err.message}`
+        }
+      }
+      
+      setError(errorMessage)
     } finally {
       setIsLoading(false)
     }
   }
 
-  const canAddLiquidity = isConnected && amountA && amountB && !isLoading && !error && minTick < maxTick
+  // Allow one-sided positions (at least one amount must be > 0)
+  const amountANum = parseFloat(amountA) || 0
+  const amountBNum = parseFloat(amountB) || 0
+  const hasValidAmounts = amountANum > 0 || amountBNum > 0
+  // Don't block on errors - allow users to retry
+  const canAddLiquidity = isConnected && hasValidAmounts && !isLoading && minTick < maxTick
 
   return (
     <div className="w-full max-w-4xl mx-auto bg-white rounded-2xl shadow-xl border border-gray-200">
@@ -387,7 +450,7 @@ export function LiquidityCard() {
         <div className="p-4 bg-green-50 border-b border-gray-200">
           <div className="text-sm text-green-700 flex items-center gap-2">
             <Info className="w-4 h-4" />
-            <span>Pool exists • Current price: {currentPrice?.toFixed(6)}</span>
+            <span>Pool exists • Current price: {currentPrice ? formatPrice(currentPrice) : 'N/A'}</span>
           </div>
         </div>
       ) : poolDataLoaded ? (
@@ -519,8 +582,15 @@ export function LiquidityCard() {
 
             {/* Error Message */}
             {error && (
-              <div className="text-sm text-red-500 bg-red-50 border border-red-200 p-2 rounded truncate">
-                {error}
+              <div className="text-sm text-red-500 bg-red-50 border border-red-200 p-2 rounded flex items-center justify-between gap-2">
+                <span className="flex-1 truncate">{error}</span>
+                <button
+                  onClick={() => setError('')}
+                  className="text-red-600 hover:text-red-800 font-medium text-xs shrink-0"
+                  title="Dismiss error"
+                >
+                  ✕
+                </button>
               </div>
             )}
 
@@ -537,7 +607,7 @@ export function LiquidityCard() {
                 </div>
               ) : !isConnected ? (
                 'Connect Wallet'
-              ) : !amountA || !amountB ? (
+              ) : !hasValidAmounts ? (
                 'Enter Amounts'
               ) : (
                 poolExists ? 'Add Liquidity' : 'Create Pool & Add Liquidity'

@@ -46,10 +46,17 @@ export function PriceRangeSelector({
     if (currentPrice === null) return
     
     const { minTick: fullMinTick, maxTick: fullMaxTick } = getFullRangeTicks(tickSpacing)
+    const minPriceValue = tickToPrice(fullMinTick)
+    const maxPriceValue = tickToPrice(fullMaxTick)
+    
     setMinTick(fullMinTick)
     setMaxTick(fullMaxTick)
-    setMinPrice(formatPrice(tickToPrice(fullMinTick)))
-    setMaxPrice(formatPrice(tickToPrice(fullMaxTick)))
+    // Always set numeric values for number inputs, even if very small/large
+    // Use scientific notation or high precision for display
+    setMinPrice(minPriceValue.toExponential(2))
+    setMaxPrice(maxPriceValue.toExponential(2))
+    setMinSlider(0)
+    setMaxSlider(100)
     onRangeChange(fullMinTick, fullMaxTick)
   }, [tickSpacing, currentPrice])
 
@@ -59,10 +66,15 @@ export function PriceRangeSelector({
     if (percentage === null) {
       // Full range
       const { minTick: fullMinTick, maxTick: fullMaxTick } = getFullRangeTicks(tickSpacing)
+      const minPriceValue = tickToPrice(fullMinTick)
+      const maxPriceValue = tickToPrice(fullMaxTick)
+      
       setMinTick(fullMinTick)
       setMaxTick(fullMaxTick)
-      setMinPrice(formatPrice(tickToPrice(fullMinTick)))
-      setMaxPrice(formatPrice(tickToPrice(fullMaxTick)))
+      // Always set numeric values for number inputs, even if very small/large
+      // Use scientific notation for display
+      setMinPrice(minPriceValue.toExponential(2))
+      setMaxPrice(maxPriceValue.toExponential(2))
       setMinSlider(0)
       setMaxSlider(100)
       onRangeChange(fullMinTick, fullMaxTick)
@@ -151,9 +163,13 @@ export function PriceRangeSelector({
     onRangeChange(minTick, validTick)
   }
 
+  // For full range, check ticks directly since prices can be extreme
+  const isFullRange = minTick <= -887000 && maxTick >= 887000
   const minPriceNum = parseFloat(minPrice) || 0
   const maxPriceNum = parseFloat(maxPrice) || 0
-  const isValidRange = minPriceNum > 0 && maxPriceNum > minPriceNum
+  // For full range, validate based on ticks only
+  // For other ranges, validate both ticks and prices
+  const isValidRange = isFullRange ? (minTick < maxTick) : (minPriceNum > 0 && maxPriceNum > minPriceNum && minTick < maxTick)
 
   const liquidityMultiplier = isValidRange
     ? calculateLiquidityMultiplier(minTick, maxTick)
@@ -243,7 +259,7 @@ export function PriceRangeSelector({
       </div>
 
       {/* Visual Range Indicator */}
-      <div className="relative h-24 bg-gradient-to-r from-blue-100 via-green-100 to-blue-100 rounded-lg p-4">
+      <div className="relative h-24 bg-linear-to-r from-blue-100 via-green-100 to-blue-100 rounded-lg p-4">
         <div className="relative h-full">
           {/* Current Price Indicator */}
           {currentPrice > 0 && isValidRange && (
@@ -276,17 +292,24 @@ export function PriceRangeSelector({
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Min Price
+            {isFullRange && <span className="ml-2 text-xs text-blue-600">(Full Range)</span>}
           </label>
-          <input
-            type="number"
-            value={minPrice}
-            onChange={(e) => handleMinPriceChange(e.target.value)}
-            placeholder="0.0"
-            step="any"
-            disabled={disabled}
-            className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-          />
-          {currentPrice > 0 && (
+          {isFullRange ? (
+            <div className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-700 text-sm">
+              Full Range (Min Tick: {minTick})
+            </div>
+          ) : (
+            <input
+              type="number"
+              value={minPrice}
+              onChange={(e) => handleMinPriceChange(e.target.value)}
+              placeholder="0.0"
+              step="any"
+              disabled={disabled}
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            />
+          )}
+          {currentPrice > 0 && !isFullRange && (
             <p className="text-xs text-gray-500 mt-1">
               {percentageFromCurrent.min}% from current
             </p>
@@ -296,17 +319,24 @@ export function PriceRangeSelector({
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Max Price
+            {isFullRange && <span className="ml-2 text-xs text-blue-600">(Full Range)</span>}
           </label>
-          <input
-            type="number"
-            value={maxPrice}
-            onChange={(e) => handleMaxPriceChange(e.target.value)}
-            placeholder="0.0"
-            step="any"
-            disabled={disabled}
-            className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-          />
-          {currentPrice > 0 && (
+          {isFullRange ? (
+            <div className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-700 text-sm">
+              Full Range (Max Tick: {maxTick})
+            </div>
+          ) : (
+            <input
+              type="number"
+              value={maxPrice}
+              onChange={(e) => handleMaxPriceChange(e.target.value)}
+              placeholder="0.0"
+              step="any"
+              disabled={disabled}
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            />
+          )}
+          {currentPrice > 0 && !isFullRange && (
             <p className="text-xs text-gray-500 mt-1">
               +{percentageFromCurrent.max}% from current
             </p>

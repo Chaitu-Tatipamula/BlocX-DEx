@@ -16,27 +16,26 @@ export function Navigation() {
   ]
 
   return (
-    <header className="sticky top-0 z-50 bg-white shadow-sm border-b border-gray-200">
+    <header className="sticky top-0 z-50 bg-white/70 backdrop-blur-md border-b border-gray-100">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
+        <div className="flex items-center justify-between h-14">
           {/* Logo */}
-          <div className="flex items-center gap-3">
-            <Link href="/" className="flex items-center gap-3">
-              <img src="/logo.jpg" alt="BlockX" className="w-12 h-12 rounded-lg" />
-              <h1 className="text-xl font-bold text-gray-900">BlockX DEX</h1>
+          <div className="flex items-center">
+            <Link href="/" className="flex items-center">
+              <img src="/BlockX/SVG/Blue Black Blue.svg" alt="BlockX" className="h-7 w-auto" />
             </Link>
           </div>
 
           {/* Navigation Links */}
-          <nav className="hidden md:flex items-center space-x-8">
+          <nav className="hidden md:flex items-center space-x-6">
             {navItems.map((item) => (
               <Link
                 key={item.href}
                 href={item.href}
-                className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                  pathname === item.href
-                    ? 'bg-blue-100 text-blue-700'
-                    : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
+                className={`py-2 text-sm font-medium transition-colors ${
+                  pathname === item.href || (item.href === '/swap' && pathname === '/')
+                    ? 'text-blue-700'
+                    : 'text-gray-600 hover:text-gray-900'
                 }`}
               >
                 {item.label}
@@ -51,16 +50,16 @@ export function Navigation() {
         </div>
 
         {/* Mobile Navigation */}
-        <div className="md:hidden border-t border-gray-200">
-          <div className="flex space-x-1 py-2">
+        <div className="md:hidden border-t border-gray-100">
+          <div className="flex justify-around py-2">
             {navItems.map((item) => (
               <Link
                 key={item.href}
                 href={item.href}
-                className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                  pathname === item.href
-                    ? 'bg-blue-100 text-blue-700'
-                    : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
+                className={`px-3 py-2 text-sm font-medium transition-colors ${
+                  pathname === item.href || (item.href === '/swap' && pathname === '/')
+                    ? 'text-blue-700'
+                    : 'text-gray-600 hover:text-gray-900'
                 }`}
               >
                 {item.label}

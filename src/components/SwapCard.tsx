@@ -2,10 +2,10 @@
 
 import React, { useState, useEffect, useCallback } from 'react'
 import { useAccount, usePublicClient, useWalletClient } from 'wagmi'
-import { ArrowUpDown, Settings, Loader2, CheckCircle, AlertTriangle, XCircle, Plus, Droplets } from 'lucide-react'
+import { ArrowUpDown, Settings, Loader2, CheckCircle, AlertTriangle, XCircle, Plus, Droplets, Info } from 'lucide-react'
 import { TokenSelector } from './TokenSelector'
 import { SettingsModal } from './SettingsModal'
-import { SwapPreview } from './SwapPreview'
+import { SwapDetailsModal } from './SwapDetailsModal'
 import { tokens, type Token } from '@/config/tokens'
 import { getQuote, getTokenBalance, executeSwap, approveToken, getTokenAllowance, wrapBCX, unwrapWBCX, isWrapUnwrapOperation, checkPoolExists, checkPoolLiquidity } from '@/lib/swap'
 import { formatBalance, formatPriceImpact, getPriceImpactColor } from '@/lib/utils'
@@ -31,6 +31,7 @@ export function SwapCard() {
   const [isQuoteLoading, setIsQuoteLoading] = useState(false)
   const [error, setError] = useState('')
   const [showSettings, setShowSettings] = useState(false)
+  const [showDetails, setShowDetails] = useState(false)
   const [slippage, setSlippage] = useState(DEFAULT_SLIPPAGE)
   const [deadline, setDeadline] = useState(DEFAULT_DEADLINE)
   
@@ -184,6 +185,14 @@ export function SwapCard() {
     setAmountIn(tokenInBalance)
   }
 
+  const handlePercentageClick = (percentage: number) => {
+    const balance = parseFloat(tokenInBalance)
+    if (isNaN(balance) || balance <= 0) return
+    
+    const amount = (balance * percentage / 100).toString()
+    setAmountIn(amount)
+  }
+
   const handleSwap = async () => {
     if (!address || !walletClient || !publicClient || !tokenIn || !tokenOut) {
       setError('Please connect your wallet')
@@ -265,105 +274,138 @@ export function SwapCard() {
   }
 
   const wrapUnwrapType = isWrapUnwrapOperation(tokenIn, tokenOut)
-  const canSwap = isConnected && amountIn && amountOut && !isLoading && !isQuoteLoading && !error
+  const canSwap = isConnected && amountIn && amountOut && !isLoading && !isQuoteLoading
 
   return (
-    <div className="w-full max-w-2xl mx-auto bg-white rounded-2xl shadow-xl border border-gray-200">
+    <div className="w-full max-w-lg mx-auto bg-white rounded-2xl shadow-xl border border-gray-200">
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b border-gray-200">
         <h1 className="text-xl font-semibold">Swap</h1>
         <button
           onClick={() => setShowSettings(true)}
-          className="p-2 hover:bg-gray-100 rounded-full"
+          className="p-2 hover:bg-gray-100 rounded-full transition-colors"
         >
           <Settings className="w-5 h-5" />
         </button>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 p-4">
-        {/* Left Column - Swap Form */}
-        <div className="space-y-4">
+      <div className="p-4 space-y-4">
         {/* From Token */}
-        <div>
+        <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm text-gray-600">From</span>
             <span className="text-sm text-gray-500">
               Balance: {formatBalance(tokenInBalance)}
             </span>
           </div>
-          <div className="flex gap-2">
-            <TokenSelector
-              selectedToken={tokenIn}
-              onTokenSelect={setTokenIn}
-              balance={tokenInBalance}
-            />
-            <div className="flex flex-col gap-1">
+          <div className="flex items-start gap-3">
+            {/* Large Input Field */}
+            <div className="flex-1 min-w-0">
               <input
                 type="number"
                 value={amountIn}
                 onChange={(e) => setAmountIn(e.target.value)}
                 placeholder="0.0"
-                className="w-32 px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full text-2xl font-medium bg-transparent border-none outline-none text-gray-900 placeholder:text-gray-400 mb-1"
                 disabled={isLoading}
               />
-              <button
-                onClick={handleMaxClick}
-                className="text-xs text-blue-600 hover:text-blue-700"
-                disabled={isLoading}
-              >
-                MAX
-              </button>
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-500">$0</span>
+                {/* Compact Percentage Buttons */}
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => handlePercentageClick(25)}
+                    disabled={isLoading || !tokenInBalance || parseFloat(tokenInBalance) <= 0}
+                    className="px-2 py-0.5 text-xs font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    25%
+                  </button>
+                  <button
+                    onClick={() => handlePercentageClick(50)}
+                    disabled={isLoading || !tokenInBalance || parseFloat(tokenInBalance) <= 0}
+                    className="px-2 py-0.5 text-xs font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    50%
+                  </button>
+                  <button
+                    onClick={() => handlePercentageClick(75)}
+                    disabled={isLoading || !tokenInBalance || parseFloat(tokenInBalance) <= 0}
+                    className="px-2 py-0.5 text-xs font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    75%
+                  </button>
+                  <button
+                    onClick={handleMaxClick}
+                    disabled={isLoading || !tokenInBalance || parseFloat(tokenInBalance) <= 0}
+                    className="px-2 py-0.5 text-xs font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    MAX
+                  </button>
+                </div>
+              </div>
+            </div>
+            {/* Compact Token Selector */}
+            <div className="shrink-0">
+              <TokenSelector
+                selectedToken={tokenIn}
+                onTokenSelect={setTokenIn}
+                balance={tokenInBalance}
+                excludeTokens={tokenOut ? [tokenOut] : []}
+                compact
+              />
             </div>
           </div>
         </div>
 
         {/* Swap Button */}
-        <div className="flex justify-center">
+        <div className="flex justify-center -my-2 relative z-10">
           <button
             onClick={handleSwapTokens}
-            className="p-2 bg-gray-100 hover:bg-gray-200 rounded-full transition-colors"
+            className="p-2 bg-white border-2 border-gray-200 hover:border-gray-300 rounded-full transition-colors shadow-sm"
             disabled={isLoading}
           >
-            <ArrowUpDown className="w-5 h-5" />
+            <ArrowUpDown className="w-5 h-5 text-gray-600" />
           </button>
         </div>
 
         {/* To Token */}
-        <div>
+        <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm text-gray-600">To</span>
             <span className="text-sm text-gray-500">
               Balance: {formatBalance(tokenOutBalance)}
             </span>
           </div>
-          <div className="flex gap-2">
-            <TokenSelector
-              selectedToken={tokenOut}
-              onTokenSelect={setTokenOut}
-              balance={tokenOutBalance}
-              disabled={isLoading}
-            />
-            <div className="w-32 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg flex items-center">
+          <div className="flex items-start gap-3">
+            {/* Large Input Field */}
+            <div className="flex-1 min-w-0">
               {isQuoteLoading ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
+                <div className="flex items-center gap-2 mb-1">
+                  <Loader2 className="w-4 h-4 animate-spin text-gray-400" />
+                  <span className="text-2xl font-medium text-gray-400">Calculating...</span>
+                </div>
               ) : (
-                <span className="text-gray-900">
+                <div className="text-2xl font-medium text-gray-900 mb-1">
                   {amountOut ? formatBalance(amountOut) : '0.0'}
-                </span>
+                </div>
               )}
+              <div>
+                <span className="text-sm text-gray-500">$0</span>
+              </div>
+            </div>
+            {/* Compact Token Selector */}
+            <div className="shrink-0">
+              <TokenSelector
+                selectedToken={tokenOut}
+                onTokenSelect={setTokenOut}
+                balance={tokenOutBalance}
+                disabled={isLoading}
+                excludeTokens={tokenIn ? [tokenIn] : []}
+                compact
+              />
             </div>
           </div>
         </div>
-
-        {/* Price Impact */}
-        {priceImpact > 0 && (
-          <div className="text-sm">
-            <span className="text-gray-600">Price Impact: </span>
-            <span className={getPriceImpactColor(priceImpact)}>
-              {formatPriceImpact(priceImpact)}
-            </span>
-          </div>
-        )}
 
         {/* Pool Status Indicator */}
         {poolStatus && (
@@ -413,35 +455,56 @@ export function SwapCard() {
 
         {/* Error Message */}
         {error && (
-              <div className="text-sm text-red-500 bg-red-50 border border-red-200 p-2 rounded truncate">
-            {error}
+          <div className="text-sm text-red-500 bg-red-50 border border-red-200 p-2 rounded flex items-center justify-between gap-2">
+            <span className="flex-1 truncate">{error}</span>
+            <button
+              onClick={() => setError('')}
+              className="text-red-600 hover:text-red-800 font-medium text-xs shrink-0"
+              title="Dismiss error"
+            >
+              ✕
+            </button>
           </div>
         )}
 
-        {/* Swap Button */}
-        <button
-          onClick={handleSwap}
-          disabled={!canSwap}
-          className="w-full py-3 px-4 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-        >
-          {isLoading ? (
-            <div className="flex items-center justify-center gap-2">
-              <Loader2 className="w-4 h-4 animate-spin" />
-              {wrapUnwrapType === 'wrap' ? 'Wrapping...' : 
-               wrapUnwrapType === 'unwrap' ? 'Unwrapping...' : 'Swapping...'}
-            </div>
-          ) : !isConnected ? (
-            'Connect Wallet'
-          ) : !amountIn ? (
-            'Enter Amount'
-          ) : wrapUnwrapType === 'wrap' ? (
-            'Wrap BCX'
-          ) : wrapUnwrapType === 'unwrap' ? (
-            'Unwrap WBCX'
-          ) : (
-            'Swap'
+        {/* Swap Info and Button */}
+        <div className="space-y-2">
+          {/* Details Button - Show when we have swap data */}
+          {amountIn && amountOut && tokenIn && tokenOut && (
+            <button
+              onClick={() => setShowDetails(true)}
+              className="w-full flex items-center justify-center gap-2 py-2 text-sm text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors"
+            >
+              <Info className="w-4 h-4" />
+              <span>View Swap Details</span>
+            </button>
           )}
-        </button>
+
+          {/* Swap Button */}
+          <button
+            onClick={handleSwap}
+            disabled={!canSwap}
+            className="w-full py-3 px-4 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            {isLoading ? (
+              <div className="flex items-center justify-center gap-2">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                {wrapUnwrapType === 'wrap' ? 'Wrapping...' : 
+                 wrapUnwrapType === 'unwrap' ? 'Unwrapping...' : 'Swapping...'}
+              </div>
+            ) : !isConnected ? (
+              'Connect Wallet'
+            ) : !amountIn ? (
+              'Enter Amount'
+            ) : wrapUnwrapType === 'wrap' ? (
+              'Wrap BCX'
+            ) : wrapUnwrapType === 'unwrap' ? (
+              'Unwrap WBCX'
+            ) : (
+              'Swap'
+            )}
+          </button>
+        </div>
 
         {/* Create Pool Button - Show when no pool exists */}
         {poolStatus === 'not-exists' && isConnected && (
@@ -482,23 +545,6 @@ export function SwapCard() {
             Add Liquidity to {tokenIn?.symbol} → {tokenOut?.symbol} Pool
           </button>
         )}
-        </div>
-
-        {/* Right Column - Swap Preview */}
-        <div className="lg:block">
-          <SwapPreview
-            tokenIn={tokenIn}
-            tokenOut={tokenOut}
-            amountIn={amountIn}
-            amountOut={amountOut}
-            priceImpact={priceImpact}
-            slippage={slippage}
-            minimumReceived={minimumReceived}
-            exchangeRate={exchangeRate}
-            fee={fee}
-            isLoading={isQuoteLoading}
-          />
-        </div>
       </div>
 
       {/* Settings Modal */}
@@ -510,6 +556,23 @@ export function SwapCard() {
         deadline={deadline}
         onDeadlineChange={setDeadline}
       />
+
+      {/* Swap Details Modal */}
+      <SwapDetailsModal
+        isOpen={showDetails}
+        onClose={() => setShowDetails(false)}
+        tokenIn={tokenIn}
+        tokenOut={tokenOut}
+        amountIn={amountIn}
+        amountOut={amountOut}
+        priceImpact={priceImpact}
+        slippage={slippage}
+        minimumReceived={minimumReceived}
+        exchangeRate={exchangeRate}
+        fee={fee}
+        isLoading={isQuoteLoading}
+      />
     </div>
   )
 }
+

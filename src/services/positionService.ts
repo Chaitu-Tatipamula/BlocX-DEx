@@ -88,6 +88,8 @@ export class PositionService {
             tokensOwed1: formatUnits(tokensOwed1, 18),
           })
         } catch (positionError) {
+          console.error(`Error fetching position at index ${i}:`, positionError)
+          // Continue fetching other positions even if one fails
         }
       }
 

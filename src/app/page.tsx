@@ -2,79 +2,61 @@
 
 import React from 'react'
 import Link from 'next/link'
+import { SwapCard } from '@/components/SwapCard'
 
 export default function Home() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-
-
-      {/* Main Content */}
-      <main className="flex-1 py-12 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-8">
-            <h2 className="text-3xl font-bold text-gray-900 mb-2">
-              BlockX Decentralized Exchange
-            </h2>
-            <p className="text-gray-600">
-              Swap tokens and provide liquidity on the BlockX network
+      {/* Hero Section */}
+      <div className="relative overflow-hidden">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-24">
+          {/* Main Heading */}
+          <div className="text-center mb-12">
+            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-gray-900 mb-4">
+              Swap anytime, anywhere.
+            </h1>
+            <p className="text-lg md:text-xl text-gray-600 max-w-2xl mx-auto">
+              Trade tokens instantly on the BlockX network with low fees and fast transactions.
             </p>
           </div>
 
-          {/* Quick Actions */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto">
-            <Link
-              href="/swap"
-              className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow"
-            >
-              <div className="text-center">
-                <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mx-auto mb-4">
-                  <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
-                  </svg>
-                </div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">Swap</h3>
-                <p className="text-gray-600">Trade tokens instantly</p>
-              </div>
-            </Link>
+          {/* Swap Card Container */}
+          <div className="flex justify-center">
+            <div className="w-full max-w-md">
+              <SwapCard />
+            </div>
+          </div>
 
+          {/* Additional Info */}
+          <div className="mt-12 text-center">
+            <p className="text-sm text-gray-500">
+              Buy and sell tokens with concentrated liquidity on BlockX network.
+            </p>
+          </div>
+
+          {/* Quick Links */}
+          <div className="mt-16 flex flex-wrap justify-center gap-6">
             <Link
               href="/liquidity"
-              className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow"
+              className="px-6 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
             >
-              <div className="text-center">
-                <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mx-auto mb-4">
-                  <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                  </svg>
-                </div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">Add Liquidity</h3>
-                <p className="text-gray-600">Provide liquidity and earn fees</p>
-              </div>
+              Add Liquidity
             </Link>
-
+            <Link
+              href="/pools"
+              className="px-6 py-3 bg-white text-gray-700 border border-gray-300 rounded-lg font-medium hover:bg-gray-50 transition-colors"
+            >
+              Explore Pools
+            </Link>
             <Link
               href="/positions"
-              className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow"
+              className="px-6 py-3 bg-white text-gray-700 border border-gray-300 rounded-lg font-medium hover:bg-gray-50 transition-colors"
             >
-              <div className="text-center">
-                <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center mx-auto mb-4">
-                  <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                </div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">My Positions</h3>
-                <p className="text-gray-600">Manage your liquidity positions</p>
-              </div>
+              My Positions
             </Link>
           </div>
-          
-          <div className="mt-8 text-center">
-            <p className="text-sm text-gray-500">
-              Powered by BlockX Network
-            </p>
-          </div>
         </div>
-      </main>
+      </div>
     </div>
   )
 }

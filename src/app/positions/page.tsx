@@ -7,7 +7,7 @@ import { PositionService } from '@/services/positionService'
 import { PoolService } from '@/services/poolService'
 import { Position, PositionDetails } from '@/types/position'
 import { PositionInfoCard } from '@/components/PositionInfoCard'
-import { isInRange, getPriceRangeDisplay, getTokenAmounts, estimateAPR, calculateShareOfPool } from '@/lib/positionAnalysis'
+import { isInRange, getPriceRangeDisplay, getTokenAmounts, estimateAPR, calculateShareOfPool, formatPrice } from '@/lib/positionAnalysis'
 import { formatBalance } from '@/lib/utils'
 import { Loader2, Plus } from 'lucide-react'
 
@@ -532,13 +532,13 @@ export default function PositionsPage() {
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-600">Price Range:</span>
                       <span className="font-medium text-gray-900">
-                        {selectedPosition.priceRangeLower} - {selectedPosition.priceRangeUpper}
+                        {formatPrice(selectedPosition.priceRangeLower)} - {formatPrice(selectedPosition.priceRangeUpper)}
                       </span>
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-600">Current Price:</span>
                       <span className="font-medium text-gray-900">
-                        {selectedPosition.currentPrice ? selectedPosition.currentPrice.toFixed(6) : 'Loading...'}
+                        {selectedPosition.currentPrice ? formatPrice(selectedPosition.currentPrice) : 'Loading...'}
                       </span>
                     </div>
                     <div className="flex justify-between text-sm">
@@ -673,12 +673,12 @@ export default function PositionsPage() {
                   <div className="space-y-3">
                     <div className="text-center p-3 bg-white rounded-lg border">
                       <div className="text-2xl font-bold text-gray-900">
-                        +{parseFloat(adjustedAmount0 || '0') + parseFloat(adjustedAmount1 || '0')}
+                        +{formatBalance((parseFloat(adjustedAmount0 || '0') + parseFloat(adjustedAmount1 || '0')).toString())}
                       </div>
                       <div className="text-sm text-gray-600">Additional Liquidity</div>
                       {amountAdjustment && (
                         <div className="mt-2 text-xs text-orange-600">
-                          (Adjusted from {parseFloat(increaseAmount0 || '0') + parseFloat(increaseAmount1 || '0')})
+                          (Adjusted from {formatBalance((parseFloat(increaseAmount0 || '0') + parseFloat(increaseAmount1 || '0')).toString())})
                         </div>
                       )}
                     </div>
@@ -724,8 +724,8 @@ export default function PositionsPage() {
                     <div className="text-xs text-orange-700">
                       <div className="mb-1">{amountAdjustment.reason}</div>
                       <div className="space-y-1">
-                        <div>Token 0: {amountAdjustment.original0} → {amountAdjustment.adjusted0}</div>
-                        <div>Token 1: {amountAdjustment.original1} → {amountAdjustment.adjusted1}</div>
+                        <div>Token 0: {formatBalance(amountAdjustment.original0)} → {formatBalance(amountAdjustment.adjusted0)}</div>
+                        <div>Token 1: {formatBalance(amountAdjustment.original1)} → {formatBalance(amountAdjustment.adjusted1)}</div>
                       </div>
                     </div>
                   </div>

@@ -10,11 +10,30 @@ export function formatAddress(address: string): string {
   return `${address.slice(0, 6)}...${address.slice(-4)}`
 }
 
-export function formatBalance(balance: string, decimals: number = 4): string {
-  const num = parseFloat(balance)
+export function formatBalance(balance: string | number, decimals: number = 4): string {
+  const num = typeof balance === 'number' ? balance : Number(balance)
+
+  if (!isFinite(num) || isNaN(num)) return '0'
   if (num === 0) return '0'
-  if (num < 0.0001) return '< 0.0001'
-  return num.toFixed(decimals)
+
+  const abs = Math.abs(num)
+
+  // Tiny amounts
+  if (abs < 0.000001) return '< 0.000001'
+
+  // Very large amounts – use compact notation (K, M, B, T)
+  if (abs >= 1e9) {
+    return new Intl.NumberFormat('en-US', {
+      notation: 'compact',
+      maximumFractionDigits: 2,
+    }).format(num)
+  }
+
+  // Default – fixed with grouping
+  return new Intl.NumberFormat('en-US', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: decimals,
+  }).format(num)
 }
 
 export function formatPriceImpact(priceImpact: number): string {

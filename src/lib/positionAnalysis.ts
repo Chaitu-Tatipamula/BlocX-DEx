@@ -187,16 +187,43 @@ export function getPositionStatusBadge(inRange: boolean): {
  * @returns Formatted price string
  */
 export function formatPrice(price: number, decimals: number = 6): string {
-  if (price < 0.000001) {
-    return price.toExponential(2)
+  if (!isFinite(price) || isNaN(price) || price === 0) return '0'
+  
+  const abs = Math.abs(price)
+  
+  // Very small prices - use more decimals without scientific notation
+  if (abs < 0.000001) {
+    // Use up to 10 decimals for very small prices
+    const formatted = price.toFixed(10).replace(/\.?0+$/, '')
+    return formatted === '0' ? '< 0.000001' : formatted
   }
-  if (price < 1) {
-    return price.toFixed(decimals)
+  
+  // Small prices - use specified decimals
+  if (abs < 1) {
+    return price.toFixed(Math.min(decimals, 8))
   }
-  if (price < 1000) {
-    return price.toFixed(Math.min(decimals, 4))
+  
+  // Large prices - use compact notation
+  if (abs >= 1e9) {
+    return new Intl.NumberFormat('en-US', {
+      notation: 'compact',
+      maximumFractionDigits: 2,
+    }).format(price)
   }
-  return price.toFixed(2)
+  
+  // Medium prices - use locale formatting with thousands separators
+  if (abs >= 1000) {
+    return new Intl.NumberFormat('en-US', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2,
+    }).format(price)
+  }
+  
+  // Regular prices
+  return new Intl.NumberFormat('en-US', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: Math.min(decimals, 4),
+  }).format(price)
 }
 
 /**

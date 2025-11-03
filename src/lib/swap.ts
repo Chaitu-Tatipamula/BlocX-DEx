@@ -104,12 +104,6 @@ export async function getQuote(
     const amountInWei = parseUnits(amountIn, 18)
     const fee = 500 // 0.05% fee tier
     
-    // Check if V3 pool exists and has liquidity for better debugging
-    const v3PoolExists = await checkPoolExists(publicClient, tokenInAddress, tokenOutAddress, fee)
-    const v3PoolLiquidity = await checkPoolLiquidity(publicClient, tokenInAddress, tokenOutAddress, fee)
-    console.log(`V3 pool exists for ${tokenIn} → ${tokenOut}:`, v3PoolExists)
-    console.log(`V3 pool has liquidity:`, v3PoolLiquidity.hasLiquidity, `(${v3PoolLiquidity.liquidity})`)
-    
     // Try V3 QuoterV2 first
     try {
       const quote = await publicClient.readContract({
@@ -127,8 +121,6 @@ export async function getQuote(
       
       const [amountOut] = quote as [bigint, bigint, number, bigint]
       const amountOutFormatted = formatUnits(amountOut, 18)
-      
-      console.log(`V3 quote successful: ${amountIn} ${tokenIn} → ${amountOutFormatted} ${tokenOut}`)
       
       return {
         amountOut: amountOutFormatted,
@@ -150,8 +142,6 @@ export async function getQuote(
         
         const amountOut = formatUnits(amounts[1], 18)
         
-        console.log(`V2 quote successful: ${amountIn} ${tokenIn} → ${amountOut} ${tokenOut}`)
-        
         return {
           amountOut,
           priceImpact: 0.1,
@@ -159,20 +149,7 @@ export async function getQuote(
         }
       } catch (v2Error) {
         console.error('V2 router also failed:', v2Error)
-        
-        // Provide detailed error message based on what we know
-        let errorMessage = 'No liquidity pool found for this pair.'
-        if (v3PoolExists) {
-          if (v3PoolLiquidity.hasLiquidity) {
-            errorMessage = `V3 pool exists with liquidity but both QuoterV2 and V2 router failed. This might be a contract issue or the liquidity is outside the current price range.`
-          } else {
-            errorMessage = `V3 pool exists but has NO liquidity (${v3PoolLiquidity.liquidity}). The pool contract was created but no tokens have been added to it. Please add liquidity to the ${tokenIn} → ${tokenOut} pool first.`
-          }
-        } else {
-          errorMessage = `No V3 pool exists and V2 router also failed. Please create a liquidity pool for ${tokenIn} → ${tokenOut}.`
-        }
-        
-        throw new Error(errorMessage)
+        throw new Error('Both QuoterV2 and V2 router failed. No liquidity pool found for this pair.')
       }
     }
   } catch (error) {

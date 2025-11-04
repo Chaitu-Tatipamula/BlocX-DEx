@@ -16,11 +16,13 @@ import { CONTRACT_ADDRESSES, NONFUNGIBLE_POSITION_MANAGER_ABI, ERC20_ABI } from 
 import { PoolService } from '@/services/poolService'
 import { priceToTick, tickToPrice } from '@/lib/tickMath'
 import { calculateOptimalAmount, formatPrice } from '@/lib/positionAnalysis'
+import { useTx } from '../context/tx'
 
 export function LiquidityCard() {
   const { address, isConnected } = useAccount()
   const publicClient = usePublicClient()
   const { data: walletClient } = useWalletClient()
+  const { addTx } = useTx()
 
   // State
   const [tokenA, setTokenA] = useState<Token | null>(tokens.WBCX)
@@ -352,6 +354,7 @@ export function LiquidityCard() {
             functionName: 'approve',
             args: [CONTRACT_ADDRESSES.NONFUNGIBLE_POSITION_MANAGER, amountADesiredWei],
           })
+          if (approveHashA) addTx({ hash: approveHashA, title: `Approve ${tokenA.symbol}`})
           await publicClient.waitForTransactionReceipt({ hash: approveHashA })
           console.log(`✓ ${tokenA.symbol} approved`)
         }
@@ -379,6 +382,8 @@ export function LiquidityCard() {
             functionName: 'approve',
             args: [CONTRACT_ADDRESSES.NONFUNGIBLE_POSITION_MANAGER, amountBDesiredWei],
           })
+          if (approveHashB) addTx({ hash: approveHashB, title: `Approve ${tokenB.symbol}` })
+
           await publicClient.waitForTransactionReceipt({ hash: approveHashB })
           console.log(`✓ ${tokenB.symbol} approved`)
         }
@@ -580,6 +585,7 @@ export function LiquidityCard() {
         }],
         value: BigInt(0),
       })
+      if (hash) addTx({ hash: hash as string, title: poolExists ? 'Added Liquidity' : 'Create Pool & Add Liquidity'})
 
       console.log('Transaction hash:', hash)
       const receipt = await publicClient.waitForTransactionReceipt({ hash: hash as `0x${string}` })

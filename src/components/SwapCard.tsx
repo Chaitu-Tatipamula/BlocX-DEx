@@ -9,6 +9,7 @@ import { SwapDetailsModal } from './SwapDetailsModal'
 import { tokens, type Token } from '@/config/tokens'
 import { getQuote, getTokenBalance, executeSwap, approveToken, getTokenAllowance, wrapBCX, unwrapWBCX, isWrapUnwrapOperation, checkPoolExists, checkPoolLiquidity } from '@/lib/swap'
 import { formatBalance, formatPriceImpact, getPriceImpactColor } from '@/lib/utils'
+import { useTx } from "../context/tx"
 
 const DEFAULT_SLIPPAGE = 0.5
 const DEFAULT_DEADLINE = 20
@@ -17,6 +18,7 @@ export function SwapCard() {
   const { address, isConnected } = useAccount()
   const publicClient = usePublicClient()
   const { data: walletClient } = useWalletClient()
+    const { addTx } = useTx()
 
   // State
   const [tokenIn, setTokenIn] = useState<Token | null>(tokens.BCX)
@@ -224,6 +226,9 @@ export function SwapCard() {
       if (wrapUnwrapType === 'wrap') {
         // Wrap BCX to WBCX
         const wrapHash = await wrapBCX(walletClient, amountIn)
+        if (wrapHash) {
+          addTx({ hash: wrapHash, title: 'BCX Wrapped' })
+        }
         await publicClient.waitForTransactionReceipt({ hash: wrapHash as `0x${string}` })
         
         // Reset form and refresh balances
@@ -236,6 +241,9 @@ export function SwapCard() {
       if (wrapUnwrapType === 'unwrap') {
         // Unwrap WBCX to BCX
         const unwrapHash = await unwrapWBCX(walletClient, amountIn)
+         if (unwrapHash) {
+          addTx({ hash: unwrapHash, title: 'BCX Unwrapped' })
+        }
         await publicClient.waitForTransactionReceipt({ hash: unwrapHash as `0x${string}` })
         
         // Reset form and refresh balances
@@ -254,6 +262,9 @@ export function SwapCard() {
         if (parseFloat(allowance) < amountInWei) {
           // Approve token
           const approveHash = await approveToken(walletClient, tokenIn.address, amountIn, tokenIn.decimals)
+          if (approveHash) {
+            addTx({ hash: approveHash, title: `Approved ${tokenIn.symbol}` })
+          }
           await publicClient.waitForTransactionReceipt({ hash: approveHash as `0x${string}` })
         }
       }
@@ -269,6 +280,10 @@ export function SwapCard() {
         decimalsIn: tokenIn.decimals,
         decimalsOut: tokenOut.decimals,
       })
+      
+      if (swapHash) {
+        addTx({ hash: swapHash, title: `Swapped ${tokenIn.symbol} → ${tokenOut.symbol}` })
+      }
 
       // Wait for transaction
       await publicClient.waitForTransactionReceipt({ hash: swapHash as `0x${string}` })

@@ -5,7 +5,7 @@ import { useAccount, usePublicClient, useWalletClient } from 'wagmi'
 import { Trash2, Eye, Loader2 } from 'lucide-react'
 import { getLiquidityPositions, removeLiquidity, increaseLiquidity } from '@/lib/liquidity'
 import { formatBalance } from '@/lib/utils'
-
+import { useTx } from '@/context/tx'
 interface LiquidityPosition {
   tokenId: string
   token0: string
@@ -23,6 +23,7 @@ export function PositionsCard() {
   const { address, isConnected } = useAccount()
   const publicClient = usePublicClient()
   const { data: walletClient } = useWalletClient()
+  const { addTx } = useTx()
 
   const [positions, setPositions] = useState<LiquidityPosition[]>([])
   const [isLoading, setIsLoading] = useState(false)
@@ -75,6 +76,10 @@ export function PositionsCard() {
         amount1Min: MIN_SLIPPAGE.toString(),
         deadline: DEADLINE_MINUTES,
       })
+      if (hash) {
+        addTx({ hash: hash as string, title: increasingPosition ? 'Liquidity Increased' : 'Create Pool & Add Liquidity' });
+        
+      }
 
       await publicClient.waitForTransactionReceipt({ hash: hash as `0x${string}` })
       
@@ -114,7 +119,10 @@ export function PositionsCard() {
         DEADLINE_MINUTES, // 20 minutes deadline
         address
       )
-
+      if (hash) {
+        addTx({ hash: hash as string, title:  position.liquidity > 0 ? 'Liquidity Decreased' : 'Create Pool & Add Liquidity' });
+        
+      }
       await publicClient.waitForTransactionReceipt({ hash: hash as `0x${string}` })
       
       // Refresh positions

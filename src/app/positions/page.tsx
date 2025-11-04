@@ -70,14 +70,27 @@ export default function PositionsPage() {
               position.tickLower,
               position.tickUpper
             )
+            
+            // Format amounts with correct token decimals for display
+            const amount0Num = parseFloat(amounts.amount0)
+            const amount1Num = parseFloat(amounts.amount1)
+            
+            // Divide by 10^decimals to convert from calculated units to human-readable
+            const formattedAmount0 = amount0Num > 0 
+              ? formatBalance((amount0Num / Math.pow(10, pool.token0.decimals)).toString(), pool.token0.decimals)
+              : '0'
+            const formattedAmount1 = amount1Num > 0
+              ? formatBalance((amount1Num / Math.pow(10, pool.token1.decimals)).toString(), pool.token1.decimals)
+              : '0'
+            
             const apr = estimateAPR(position, position.fee, '0') // No volume data available
             const shareOfPool = calculateShareOfPool(position.liquidity, pool.liquidity)
 
             enhanced.push({
               ...position,
               inRange,
-              amount0: amounts.amount0,
-              amount1: amounts.amount1,
+              amount0: formattedAmount0,
+              amount1: formattedAmount1,
               estimatedAPR: apr,
               shareOfPool,
               priceRangeLower: priceRange.min,

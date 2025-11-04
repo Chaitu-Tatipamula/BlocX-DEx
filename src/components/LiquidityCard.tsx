@@ -11,7 +11,7 @@ import { LiquidityPreview } from './LiquidityPreview'
 import { tokens, type Token } from '@/config/tokens'
 import { getTokenBalance } from '@/lib/liquidity'
 import { formatBalance } from '@/lib/utils'
-import { parseUnits, type Address } from 'viem'
+import { parseUnits, formatUnits, type Address } from 'viem'
 import { CONTRACT_ADDRESSES, NONFUNGIBLE_POSITION_MANAGER_ABI, ERC20_ABI } from '@/lib/contracts'
 import { PoolService } from '@/services/poolService'
 import { priceToTick, tickToPrice } from '@/lib/tickMath'
@@ -47,6 +47,7 @@ export function LiquidityCard() {
   const [poolExists, setPoolExists] = useState(false)
   const [loadingPoolInfo, setLoadingPoolInfo] = useState(false)
   const [poolDataLoaded, setPoolDataLoaded] = useState(false) // FIX: Track if pool data is loaded
+  const [initialPriceInput, setInitialPriceInput] = useState('1')
 
   // URL parameters for pre-selecting tokens
   const [urlParams, setUrlParams] = useState<{
@@ -99,8 +100,8 @@ export function LiquidityCard() {
       const tokenAAddress = tokenA?.symbol === 'BCX' ? 'BCX' : (tokenA?.address || '')
       const tokenBAddress = tokenB?.symbol === 'BCX' ? 'BCX' : (tokenB?.address || '')
       
-      const balanceA = await getTokenBalance(publicClient, tokenAAddress, address)
-      const balanceB = await getTokenBalance(publicClient, tokenBAddress, address)
+      const balanceA = await getTokenBalance(publicClient, tokenAAddress, address, tokenA?.decimals)
+      const balanceB = await getTokenBalance(publicClient, tokenBAddress, address, tokenB?.decimals)
       
       setTokenABalance(balanceA)
       setTokenBBalance(balanceB)
@@ -128,18 +129,26 @@ export function LiquidityCard() {
         setCurrentPrice(pool.currentPrice)
       } else {
         setPoolExists(false)
-        setCurrentPrice(1) // Default 1:1 ratio for new pools
+        setCurrentPrice(parseFloat(initialPriceInput) || 1) // Default from input for new pools
       }
       setPoolDataLoaded(true) // FIX: Mark as loaded
     } catch (error) {
       console.error('Error fetching pool info:', error)
       setPoolExists(false)
-      setCurrentPrice(1)
+      setCurrentPrice(parseFloat(initialPriceInput) || 1)
       setPoolDataLoaded(true) // FIX: Mark as loaded even on error
     } finally {
       setLoadingPoolInfo(false)
     }
-  }, [tokenA, tokenB, feeTier, publicClient])
+  }, [tokenA, tokenB, feeTier, publicClient, initialPriceInput])
+
+  // When creating a new pool, reflect manual initial price in the range selector preview
+  useEffect(() => {
+    if (!poolExists) {
+      const v = parseFloat(initialPriceInput)
+      if (!isNaN(v) && v > 0) setCurrentPrice(v)
+    }
+  }, [initialPriceInput, poolExists])
 
   // Fetch balances and pool info when tokens change
   useEffect(() => {
@@ -160,12 +169,51 @@ export function LiquidityCard() {
 
     try {
       const currentTick = priceToTick(currentPrice)
+      
+      // Calculate sqrt prices for logging
+      const sqrtPriceCurrent = Math.sqrt(Math.pow(1.0001, currentTick))
+      const sqrtPriceLower = Math.sqrt(Math.pow(1.0001, minTick))
+      const sqrtPriceUpper = Math.sqrt(Math.pow(1.0001, maxTick))
+      
+      // Uniswap V3 liquidity formula:
+      // When providing token0 (WBCX): L = amount0 / (1/√P_current - 1/√P_upper)
+      // Then calculate token1 (USDC): amount1 = L * (√P_current - √P_lower)
+      const amount0 = parseFloat(amountA)
+      const liquidity = amount0 / (1 / sqrtPriceCurrent - 1 / sqrtPriceUpper)
+      const amount1 = liquidity * (sqrtPriceCurrent - sqrtPriceLower)
+      
+      console.log('📊 Amount calculation breakdown:', {
+        input: { amount0: `${amountA} ${tokenA?.symbol}`, currentPrice },
+        priceRange: {
+          minPrice: tickToPrice(minTick),
+          maxPrice: tickToPrice(maxTick),
+          currentPrice,
+          minTick,
+          maxTick,
+          currentTick,
+        },
+        sqrtPrices: {
+          sqrtPriceCurrent: sqrtPriceCurrent.toFixed(10),
+          sqrtPriceLower: sqrtPriceLower.toFixed(10),
+          sqrtPriceUpper: sqrtPriceUpper.toFixed(10),
+        },
+        calculation: {
+          liquidity: liquidity.toFixed(10),
+          formula: 'L = amount0 / (1/√P_current - 1/√P_upper)',
+          amount1Formula: 'amount1 = L * (√P_current - √P_lower)',
+          calculatedAmount1: amount1.toFixed(10),
+        },
+        result: {
+          amount1: `${amount1.toFixed(6)} ${tokenB?.symbol}`,
+        },
+      })
+      
       const optimalAmountB = calculateOptimalAmount(amountA, true, currentTick, minTick, maxTick)
       setAmountB(parseFloat(optimalAmountB).toFixed(6))
     } catch (error) {
       console.error('Error calculating amount B:', error)
     }
-  }, [amountA, currentPrice, minTick, maxTick])
+  }, [amountA, currentPrice, minTick, maxTick, tokenA?.symbol, tokenB?.symbol])
 
   // FIX: Auto-calculate amount A when amount B changes
   const handleAmountBChange = (value: string) => {
@@ -256,18 +304,25 @@ export function LiquidityCard() {
 
     try {
       // Handle one-sided positions (one amount can be 0)
-      const amountADesiredWei = amountANum > 0 ? parseUnits(amountA, 18) : BigInt(0)
-      const amountBDesiredWei = amountBNum > 0 ? parseUnits(amountB, 18) : BigInt(0)
+      const amountADesiredWei = amountANum > 0 ? parseUnits(amountA, tokenA.decimals) : BigInt(0)
+      const amountBDesiredWei = amountBNum > 0 ? parseUnits(amountB, tokenB.decimals) : BigInt(0)
       const deadlineTimestamp = Math.floor(Date.now() / 1000) + deadline * 60
 
       // Check if pool exists, create if needed
       if (!poolExists) {
         const poolService = new PoolService(publicClient, walletClient)
+        // Compute initial price for pool initialization (token1/token0) adjusted for decimals
+        const token0 = tokenA.address.toLowerCase() < tokenB.address.toLowerCase() ? tokenA : tokenB
+        const token1 = token0.address === tokenA.address ? tokenB : tokenA
+        const inputPriceAB = parseFloat(initialPriceInput) || 1 // price of tokenA in tokenB
+        const price01 = token0.address === tokenA.address ? inputPriceAB : (inputPriceAB > 0 ? 1 / inputPriceAB : 1)
+        const normalizedPrice = price01 * Math.pow(10, (token1.decimals - token0.decimals))
+
         await poolService.createPoolIfNeeded(
           tokenA.address,
           tokenB.address,
           feeTier,
-          currentPrice || 1
+          normalizedPrice
         )
       }
 
@@ -283,13 +338,22 @@ export function LiquidityCard() {
           args: [address, CONTRACT_ADDRESSES.NONFUNGIBLE_POSITION_MANAGER],
         })
         
+        console.log(`Token A (${tokenA.symbol}) approval check:`, {
+          allowance: allowanceA.toString(),
+          required: amountADesiredWei.toString(),
+          needsApproval: allowanceA < amountADesiredWei,
+          amountFormatted: formatUnits(amountADesiredWei, tokenA.decimals),
+        })
+        
         if (allowanceA < amountADesiredWei) {
+          console.log(`Approving ${tokenA.symbol}...`)
           const approveHashA = await walletClient.writeContract({
             ...tokenAContract,
             functionName: 'approve',
             args: [CONTRACT_ADDRESSES.NONFUNGIBLE_POSITION_MANAGER, amountADesiredWei],
           })
           await publicClient.waitForTransactionReceipt({ hash: approveHashA })
+          console.log(`✓ ${tokenA.symbol} approved`)
         }
       }
       
@@ -301,13 +365,22 @@ export function LiquidityCard() {
           args: [address, CONTRACT_ADDRESSES.NONFUNGIBLE_POSITION_MANAGER],
         })
         
+        console.log(`Token B (${tokenB.symbol}) approval check:`, {
+          allowance: allowanceB.toString(),
+          required: amountBDesiredWei.toString(),
+          needsApproval: allowanceB < amountBDesiredWei,
+          amountFormatted: formatUnits(amountBDesiredWei, tokenB.decimals),
+        })
+        
         if (allowanceB < amountBDesiredWei) {
+          console.log(`Approving ${tokenB.symbol}...`)
           const approveHashB = await walletClient.writeContract({
             ...tokenBContract,
             functionName: 'approve',
             args: [CONTRACT_ADDRESSES.NONFUNGIBLE_POSITION_MANAGER, amountBDesiredWei],
           })
           await publicClient.waitForTransactionReceipt({ hash: approveHashB })
+          console.log(`✓ ${tokenB.symbol} approved`)
         }
       }
 
@@ -333,17 +406,161 @@ export function LiquidityCard() {
         throw new Error('Invalid tick range: minTick must be less than maxTick')
       }
 
+      // Get token info for logging
+      const token0Info = tokenA.address.toLowerCase() < tokenB.address.toLowerCase() ? tokenA : tokenB
+      const token1Info = tokenA.address.toLowerCase() < tokenB.address.toLowerCase() ? tokenB : tokenA
+      
+      // Check if price range includes current price
+      const currentTick = currentPrice ? priceToTick(currentPrice) : null
+      const isInRange = currentTick !== null && currentTick >= minTick && currentTick <= maxTick
+      
+      if (!isInRange && currentTick !== null) {
+        console.warn('⚠️ Price range does not include current price!', {
+          currentTick,
+          currentPrice,
+          minTick,
+          maxTick,
+          minPrice: tickToPrice(minTick),
+          maxPrice: tickToPrice(maxTick),
+          warning: 'Only one token will be deposited if price is out of range'
+        })
+      }
+      
       console.log('Minting position with:', {
-        token0: token0Address,
-        token1: token1Address,
+        token0: { address: token0Address, symbol: token0Info.symbol, decimals: token0Info.decimals },
+        token1: { address: token1Address, symbol: token1Info.symbol, decimals: token1Info.decimals },
         fee: feeTier,
         tickLower: minTick,
         tickUpper: maxTick,
         amount0Desired: amount0Desired.toString(),
         amount1Desired: amount1Desired.toString(),
+        amount0DesiredFormatted: formatUnits(amount0Desired, token0Info.decimals),
+        amount1DesiredFormatted: formatUnits(amount1Desired, token1Info.decimals),
+        currentPrice,
+        currentTick,
+        minPrice: tickToPrice(minTick),
+        maxPrice: tickToPrice(maxTick),
+        isInRange,
       })
 
+      // Simulate mint first to see actual amounts that will be deposited
+      try {
+        const simulateResult = await publicClient.simulateContract({
+          address: CONTRACT_ADDRESSES.NONFUNGIBLE_POSITION_MANAGER,
+          abi: NONFUNGIBLE_POSITION_MANAGER_ABI,
+          functionName: 'mint',
+          args: [{
+            token0: token0Address,
+            token1: token1Address,
+            fee: feeTier,
+            tickLower: minTick,
+            tickUpper: maxTick,
+            amount0Desired: amount0Desired,
+            amount1Desired: amount1Desired,
+            amount0Min: BigInt(0),
+            amount1Min: BigInt(0),
+            recipient: address,
+            deadline: BigInt(deadlineTimestamp),
+          }],
+          account: address,
+        })
+
+        const [tokenId, liquidity, actualAmount0, actualAmount1] = simulateResult.result as [bigint, bigint, bigint, bigint]
+        
+        console.log('⚠️ Simulated mint result (actual amounts that will be deposited):', {
+          tokenId: tokenId.toString(),
+          liquidity: liquidity.toString(),
+          amount0: {
+            raw: actualAmount0.toString(),
+            formatted: formatUnits(actualAmount0, token0Info.decimals),
+            symbol: token0Info.symbol,
+          },
+          amount1: {
+            raw: actualAmount1.toString(),
+            formatted: formatUnits(actualAmount1, token1Info.decimals),
+            symbol: token1Info.symbol,
+          },
+          desiredAmount0: {
+            raw: amount0Desired.toString(),
+            formatted: formatUnits(amount0Desired, token0Info.decimals),
+          },
+          desiredAmount1: {
+            raw: amount1Desired.toString(),
+            formatted: formatUnits(amount1Desired, token1Info.decimals),
+          },
+        })
+
+        // Validate that both tokens will be deposited if desired
+        if (actualAmount0 === BigInt(0) && amount0Desired > BigInt(0)) {
+          throw new Error(
+            `${token0Info.symbol} amount is too small and will be rounded to 0. ` +
+            `Please increase the ${token0Info.symbol} amount or adjust the price range. ` +
+            `Desired: ${formatUnits(amount0Desired, token0Info.decimals)} ${token0Info.symbol}, Actual: 0`
+          )
+        }
+        
+        if (actualAmount1 === BigInt(0) && amount1Desired > BigInt(0)) {
+          // Calculate actual price range bounds
+          const minPrice = tickToPrice(minTick)
+          const maxPrice = tickToPrice(maxTick)
+          const rangeWidth = currentPrice && currentPrice > 0 
+            ? ((maxPrice - minPrice) / currentPrice) * 100 
+            : 0
+          
+          // Calculate required amount based on range width and current price position
+          // Wider ranges require larger amounts due to precision loss in integer math
+          // Based on testing: even 10% ranges need 10+ USDC to avoid rounding to 0
+          let minSuggestedAmount = BigInt(20000000) // Default: 20 USDC for very wide ranges
+          
+          if (rangeWidth > 0) {
+            if (rangeWidth < 5) {
+              minSuggestedAmount = BigInt(5000000) // 5 USDC for very narrow ranges (<5%)
+            } else if (rangeWidth < 10) {
+              minSuggestedAmount = BigInt(10000000) // 10 USDC for narrow ranges (5-10%)
+            } else if (rangeWidth < 20) {
+              minSuggestedAmount = BigInt(15000000) // 15 USDC for medium ranges (10-20%)
+            } else {
+              minSuggestedAmount = BigInt(20000000) // 20 USDC for wide ranges (>20%)
+            }
+          }
+          
+          const rangeInfo = rangeWidth > 0
+            ? `\nPrice range width: ${rangeWidth.toFixed(2)}% (wider ranges require larger amounts due to integer precision). `
+            : `\nWide price ranges require larger amounts due to integer precision. `
+          
+          throw new Error(
+            `${token1Info.symbol} amount is too small and will be rounded to 0 by the contract's integer math. ` +
+            `\n\nDesired: ${formatUnits(amount1Desired, token1Info.decimals)} ${token1Info.symbol}, Actual: 0. ` +
+            rangeInfo +
+            `\n\nWhy this happens: Uniswap V3 uses integer arithmetic. The liquidity calculation ` +
+            `results in very small intermediate values that round to 0 when converted back to token amounts. ` +
+            `This is especially problematic with 6-decimal tokens (USDC/USDT) where the smallest unit is larger. ` +
+            `\n\nSolutions:` +
+            `\n1. Increase ${token1Info.symbol} to at least ${formatUnits(minSuggestedAmount, token1Info.decimals)} ${token1Info.symbol} (recommended), or` +
+            `\n2. Use a much narrower price range (try ±1% or ±2% for smaller amounts)`
+          )
+        }
+        
+        // Warn if amounts differ significantly
+        const amount0Diff = actualAmount0 < amount0Desired ? amount0Desired - actualAmount0 : BigInt(0)
+        const amount1Diff = actualAmount1 < amount1Desired ? amount1Desired - actualAmount1 : BigInt(0)
+        
+        if (amount0Diff > BigInt(0) || amount1Diff > BigInt(0)) {
+          console.warn('⚠️ Note: Actual deposited amounts may differ from desired amounts:', {
+            token0Diff: formatUnits(amount0Diff, token0Info.decimals),
+            token1Diff: formatUnits(amount1Diff, token1Info.decimals),
+          })
+        }
+      } catch (simulateError) {
+        // If simulation fails, don't block - might be a simulation issue
+        console.error('Error simulating mint (continuing anyway):', simulateError)
+        if (simulateError instanceof Error && simulateError.message.includes('rounded to 0')) {
+          throw simulateError // Re-throw our validation errors
+        }
+      }
+
       // Mint position with custom tick range
+      console.log('Submitting mint transaction...')
       const hash = await walletClient.writeContract({
         address: CONTRACT_ADDRESSES.NONFUNGIBLE_POSITION_MANAGER,
         abi: NONFUNGIBLE_POSITION_MANAGER_ABI,
@@ -358,13 +575,37 @@ export function LiquidityCard() {
           amount1Desired: amount1Desired,
           amount0Min: BigInt(0),
           amount1Min: BigInt(0),
-          recipient: address,
+        recipient: address,
           deadline: BigInt(deadlineTimestamp),
         }],
         value: BigInt(0),
       })
 
-      await publicClient.waitForTransactionReceipt({ hash: hash as `0x${string}` })
+      console.log('Transaction hash:', hash)
+      const receipt = await publicClient.waitForTransactionReceipt({ hash: hash as `0x${string}` })
+      
+      // Log transaction receipt to see what was actually deposited
+      console.log('Transaction receipt:', {
+        status: receipt.status,
+        gasUsed: receipt.gasUsed.toString(),
+        logs: receipt.logs.length,
+      })
+      
+      // Try to find the IncreaseLiquidity event or check logs for token transfers
+      const positionManagerInterface = '0x' + CONTRACT_ADDRESSES.NONFUNGIBLE_POSITION_MANAGER.slice(2).toLowerCase()
+      const transferEvents = receipt.logs.filter(log => 
+        log.address.toLowerCase() === token0Address.toLowerCase() || 
+        log.address.toLowerCase() === token1Address.toLowerCase()
+      )
+      
+      console.log('Token transfer events found:', transferEvents.length)
+      transferEvents.forEach((log, i) => {
+        console.log(`Transfer ${i + 1}:`, {
+          address: log.address,
+          topics: log.topics,
+          data: log.data,
+        })
+      })
       
       // Reset form and refresh
       setAmountA('')
@@ -407,7 +648,7 @@ export function LiquidityCard() {
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b border-gray-200">
         <div>
-          <h1 className="text-xl font-semibold">Add Liquidity</h1>
+        <h1 className="text-xl font-semibold">Add Liquidity</h1>
           {urlParams.token0 && urlParams.token1 && (
             <div className="flex items-center gap-2 mt-1">
               <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
@@ -431,12 +672,12 @@ export function LiquidityCard() {
           >
             <RefreshCw className={`w-5 h-5 ${isRefreshing ? 'animate-spin' : ''}`} />
           </button>
-          <button
-            onClick={() => setShowSettings(true)}
-            className="p-2 hover:bg-gray-100 rounded-full"
-          >
-            <Settings className="w-5 h-5" />
-          </button>
+        <button
+          onClick={() => setShowSettings(true)}
+          className="p-2 hover:bg-gray-100 rounded-full"
+        >
+          <Settings className="w-5 h-5" />
+        </button>
         </div>
       </div>
 
@@ -469,34 +710,34 @@ export function LiquidityCard() {
           <div className="space-y-6">
             {/* Token Pair Selection */}
             <div className="grid grid-cols-2 gap-4">
-              {/* Token A */}
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm text-gray-600">Token A</span>
-                  <span className="text-sm text-gray-500">
-                    Balance: {formatBalance(tokenABalance)}
-                  </span>
-                </div>
-                <TokenSelector
-                  selectedToken={tokenA}
-                  onTokenSelect={handleTokenASelect}
-                  balance={tokenABalance}
+        {/* Token A */}
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm text-gray-600">Token A</span>
+            <span className="text-sm text-gray-500">
+              Balance: {formatBalance(tokenABalance)}
+            </span>
+          </div>
+            <TokenSelector
+              selectedToken={tokenA}
+              onTokenSelect={handleTokenASelect}
+              balance={tokenABalance}
                   excludeBCX={true}
                 />
-              </div>
+        </div>
 
-              {/* Token B */}
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm text-gray-600">Token B</span>
-                  <span className="text-sm text-gray-500">
-                    Balance: {formatBalance(tokenBBalance)}
-                  </span>
-                </div>
-                <TokenSelector
-                  selectedToken={tokenB}
-                  onTokenSelect={handleTokenBSelect}
-                  balance={tokenBBalance}
+        {/* Token B */}
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm text-gray-600">Token B</span>
+            <span className="text-sm text-gray-500">
+              Balance: {formatBalance(tokenBBalance)}
+            </span>
+          </div>
+            <TokenSelector
+              selectedToken={tokenB}
+              onTokenSelect={handleTokenBSelect}
+              balance={tokenBBalance}
                   disabled={isLoading}
                   excludeBCX={true}
                 />
@@ -509,6 +750,28 @@ export function LiquidityCard() {
               onFeeSelect={setFeeTier}
               disabled={isLoading}
             />
+
+            {/* Initial price (only when pool does not exist) */}
+            {poolDataLoaded && !poolExists && (
+              <div className="mt-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Initial price (1 {tokenA?.symbol} in {tokenB?.symbol})
+                </label>
+              <input
+                type="number"
+                  value={initialPriceInput}
+                  onChange={(e) => setInitialPriceInput(e.target.value)}
+                  placeholder="e.g. 0.1"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  min="0"
+                  step="any"
+                  disabled={isLoading}
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Used to initialize the pool price. This sets the starting ratio.
+                </p>
+              </div>
+            )}
 
             {/* FIX: Only render PriceRangeSelector after pool data is loaded */}
             {poolDataLoaded && currentPrice !== null ? (
@@ -566,22 +829,22 @@ export function LiquidityCard() {
                       onChange={(e) => handleAmountBChange(e.target.value)}
                       placeholder="0.0"
                       className="w-full px-3 py-2 pr-16 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      disabled={isLoading}
-                    />
-                    <button
-                      onClick={handleMaxClickB}
+                disabled={isLoading}
+              />
+              <button
+                onClick={handleMaxClickB}
                       className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-blue-600 hover:text-blue-700 font-medium"
-                      disabled={isLoading}
-                    >
-                      MAX
-                    </button>
-                  </div>
-                </div>
-              </div>
+                disabled={isLoading}
+              >
+                MAX
+              </button>
+            </div>
+          </div>
+        </div>
             </div>
 
-            {/* Error Message */}
-            {error && (
+        {/* Error Message */}
+        {error && (
               <div className="text-sm text-red-500 bg-red-50 border border-red-200 p-2 rounded flex items-center justify-between gap-2">
                 <span className="flex-1 truncate">{error}</span>
                 <button
@@ -591,28 +854,28 @@ export function LiquidityCard() {
                 >
                   ✕
                 </button>
-              </div>
-            )}
+          </div>
+        )}
 
-            {/* Add Liquidity Button */}
-            <button
-              onClick={handleAddLiquidity}
-              disabled={!canAddLiquidity}
-              className="w-full py-3 px-4 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              {isLoading ? (
-                <div className="flex items-center justify-center gap-2">
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Adding Liquidity...
-                </div>
-              ) : !isConnected ? (
-                'Connect Wallet'
+        {/* Add Liquidity Button */}
+        <button
+          onClick={handleAddLiquidity}
+          disabled={!canAddLiquidity}
+          className="w-full py-3 px-4 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        >
+          {isLoading ? (
+            <div className="flex items-center justify-center gap-2">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              Adding Liquidity...
+            </div>
+          ) : !isConnected ? (
+            'Connect Wallet'
               ) : !hasValidAmounts ? (
-                'Enter Amounts'
-              ) : (
+            'Enter Amounts'
+          ) : (
                 poolExists ? 'Add Liquidity' : 'Create Pool & Add Liquidity'
-              )}
-            </button>
+          )}
+        </button>
           </div>
 
           {/* Right Column - Preview */}

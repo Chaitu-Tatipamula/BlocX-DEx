@@ -22,7 +22,7 @@ export function Navigation() {
           {/* Logo */}
           <div className="flex items-center">
             <Link href="/" className="flex items-center">
-              <img src="/BlockX/SVG/Blue Black Blue.svg" alt="BlockX" className="h-7 w-auto" />
+              <img src="/Blockx-logo.svg" alt="BlockX" className="h-7 w-auto" />
             </Link>
           </div>
 

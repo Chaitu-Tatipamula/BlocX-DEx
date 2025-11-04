@@ -11,7 +11,7 @@ export const metadata: Metadata = {
   title: 'BlockX DEx',
   description: 'Decentralized Exchange on BlockX Network',
   icons: {
-    icon: '/logo.jpg',
+    icon: '/X-logo.svg',
   },
 }
 
@@ -26,8 +26,8 @@ export default function RootLayout({
         <Providers>
           <Navigation />
           {children}
+          <Footer />
         </Providers>
-                <Footer />
 
       </body>
     </html>

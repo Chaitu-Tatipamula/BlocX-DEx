@@ -47,13 +47,17 @@ export function getTokenAmounts(
   tickLower: number,
   tickUpper: number
 ): PositionAmounts {
-  const liquidityNum = parseFloat(liquidity)
-  
-  if (liquidityNum === 0) {
+  // Liquidity comes as raw string from contract (uint128)
+  const liquidityBigInt = BigInt(liquidity)
+  if (liquidityBigInt === BigInt(0)) {
     return { amount0: '0', amount1: '0' }
   }
 
-  // Get sqrt prices
+  // Use raw liquidity value directly - don't divide by 1e18
+  // The formulas work with raw liquidity, and the scale matches what calculateLiquidityAmounts produces
+  const liquidityNum = Number(liquidityBigInt)
+
+  // Get sqrt prices (normalized)
   const sqrtPriceCurrent = Math.sqrt(Math.pow(1.0001, currentTick))
   const sqrtPriceLower = Math.sqrt(Math.pow(1.0001, tickLower))
   const sqrtPriceUpper = Math.sqrt(Math.pow(1.0001, tickUpper))
@@ -137,14 +141,17 @@ export function calculateShareOfPool(
   positionLiquidity: string,
   poolLiquidity: string
 ): number {
-  const posLiq = parseFloat(positionLiquidity)
-  const poolLiq = parseFloat(poolLiquidity)
+  // Both are raw liquidity strings (uint128), can compare directly
+  const posLiq = BigInt(positionLiquidity)
+  const poolLiq = BigInt(poolLiquidity)
 
-  if (poolLiq === 0) {
+  if (poolLiq === BigInt(0)) {
     return 0
   }
 
-  return (posLiq / poolLiq) * 100
+  // Calculate percentage: (position / pool) * 100
+  // Use Number for division, but maintain precision
+  return (Number(posLiq) / Number(poolLiq)) * 100
 }
 
 /**

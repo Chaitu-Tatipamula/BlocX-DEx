@@ -53,8 +53,18 @@ export function SwapCard() {
       const inTokenAddress = tokenIn?.symbol === 'BCX' ? 'BCX' : (tokenIn?.address || '')
       const outTokenAddress = tokenOut?.symbol === 'BCX' ? 'BCX' : (tokenOut?.address || '')
       
-      const inBalance = await getTokenBalance(publicClient, inTokenAddress, address)
-      const outBalance = await getTokenBalance(publicClient, outTokenAddress, address)
+      const inBalance = await getTokenBalance(
+        publicClient,
+        inTokenAddress,
+        address,
+        tokenIn?.decimals
+      )
+      const outBalance = await getTokenBalance(
+        publicClient,
+        outTokenAddress,
+        address,
+        tokenOut?.decimals
+      )
       
       setTokenInBalance(inBalance)
       setTokenOutBalance(outBalance)
@@ -238,12 +248,12 @@ export function SwapCard() {
       // Regular swap operation
       // Check if token approval is needed
       if (tokenIn.address !== '0x0000000000000000000000000000000000000000') {
-        const allowance = await getTokenAllowance(publicClient, tokenIn.address, address)
+        const allowance = await getTokenAllowance(publicClient, tokenIn.address, address, tokenIn.decimals)
         const amountInWei = parseFloat(amountIn)
         
         if (parseFloat(allowance) < amountInWei) {
           // Approve token
-          const approveHash = await approveToken(walletClient, tokenIn.address, amountIn)
+          const approveHash = await approveToken(walletClient, tokenIn.address, amountIn, tokenIn.decimals)
           await publicClient.waitForTransactionReceipt({ hash: approveHash as `0x${string}` })
         }
       }
@@ -256,6 +266,8 @@ export function SwapCard() {
         slippage,
         deadline,
         recipient: address,
+        decimalsIn: tokenIn.decimals,
+        decimalsOut: tokenOut.decimals,
       })
 
       // Wait for transaction

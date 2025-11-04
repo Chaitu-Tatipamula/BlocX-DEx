@@ -186,9 +186,6 @@ export function PositionsCard() {
                       </span>
                     </div>
                     <div className="text-sm text-gray-500">
-                      Liquidity: {formatBalance(position.liquidity)}
-                    </div>
-                    <div className="text-sm text-gray-500">
                       Range: {position.tickLower} to {position.tickUpper}
                     </div>
                   </div>

@@ -76,6 +76,28 @@ export class PositionService {
             tokensOwed1,
           ] = position as any[]
 
+          // Get token decimals for proper formatting
+          let token0Decimals = 18
+          let token1Decimals = 18
+          try {
+            token0Decimals = await this.publicClient.readContract({
+              address: token0 as Address,
+              abi: ERC20_ABI,
+              functionName: 'decimals',
+            })
+          } catch {
+            // Default to 18 if can't fetch
+          }
+          try {
+            token1Decimals = await this.publicClient.readContract({
+              address: token1 as Address,
+              abi: ERC20_ABI,
+              functionName: 'decimals',
+            })
+          } catch {
+            // Default to 18 if can't fetch
+          }
+
           positions.push({
             tokenId: tokenId.toString(),
             token0,
@@ -83,9 +105,9 @@ export class PositionService {
             fee: Number(fee),
             tickLower: Number(tickLower),
             tickUpper: Number(tickUpper),
-            liquidity: formatUnits(liquidity, 18),
-            tokensOwed0: formatUnits(tokensOwed0, 18),
-            tokensOwed1: formatUnits(tokensOwed1, 18),
+            liquidity: liquidity.toString(), // Keep as raw string for calculations
+            tokensOwed0: formatUnits(tokensOwed0, token0Decimals), // Use actual token decimals
+            tokensOwed1: formatUnits(tokensOwed1, token1Decimals), // Use actual token decimals
           })
         } catch (positionError) {
           console.error(`Error fetching position at index ${i}:`, positionError)

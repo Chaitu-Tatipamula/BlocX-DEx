@@ -74,14 +74,26 @@ export default function PositionDetailPage({ params }: { params: Promise<{ token
           foundPosition.tickLower,
           foundPosition.tickUpper
         )
+        
+        const amount0Num = parseFloat(amounts.amount0)
+        const amount1Num = parseFloat(amounts.amount1)
+        
+        // Divide by 10^decimals to convert from calculated units to human-readable
+        const formattedAmount0 = amount0Num > 0 
+          ? formatBalance((amount0Num / Math.pow(10, pool.token0.decimals)).toString(), pool.token0.decimals)
+          : '0'
+        const formattedAmount1 = amount1Num > 0
+          ? formatBalance((amount1Num / Math.pow(10, pool.token1.decimals)).toString(), pool.token1.decimals)
+          : '0'
+        
         const apr = estimateAPR(foundPosition, foundPosition.fee, '0')
         const shareOfPool = calculateShareOfPool(foundPosition.liquidity, pool.liquidity)
 
         setPosition({
           ...foundPosition,
           inRange,
-          amount0: amounts.amount0,
-          amount1: amounts.amount1,
+          amount0: formattedAmount0,
+          amount1: formattedAmount1,
           estimatedAPR: apr,
           shareOfPool,
           priceRangeLower: priceRange.min,
@@ -299,13 +311,7 @@ export default function PositionDetailPage({ params }: { params: Promise<{ token
               </div>
 
               {/* Position Stats */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="bg-gray-50 rounded-lg p-4">
-                  <p className="text-sm text-gray-600 mb-1">Liquidity</p>
-                  <p className="text-xl font-semibold text-gray-900">
-                    {formatBalance(position.liquidity)}
-                  </p>
-                </div>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                 <div className="bg-gray-50 rounded-lg p-4">
                   <p className="text-sm text-gray-600 mb-1">Est. APR</p>
                   <p className="text-xl font-semibold text-green-600">

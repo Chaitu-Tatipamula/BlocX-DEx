@@ -98,19 +98,11 @@ export function PositionInfoCard({
       </div>
 
       {/* Position Stats */}
-      <div className="grid grid-cols-2 gap-3 mb-3">
-        <div className="bg-gray-50 rounded p-2">
-          <p className="text-xs text-gray-600">Liquidity</p>
-          <p className="text-sm font-semibold text-gray-900 truncate">
-            {formatBalance(position.liquidity)}
-          </p>
-        </div>
-        <div className="bg-gray-50 rounded p-2">
-          <p className="text-xs text-gray-600">Est. APR</p>
-          <p className="text-sm font-semibold text-gray-900">
-            {position.estimatedAPR.toFixed(2)}%
-          </p>
-        </div>
+      <div className="bg-gray-50 rounded p-2 mb-3">
+        <p className="text-xs text-gray-600">Est. APR</p>
+        <p className="text-sm font-semibold text-gray-900">
+          {position.estimatedAPR.toFixed(2)}%
+        </p>
       </div>
 
       {/* Token Amounts */}

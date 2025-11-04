@@ -2,7 +2,7 @@ import { type Address } from 'viem'
 import { CONTRACT_ADDRESSES, FACTORY_ABI } from '@/lib/contracts'
 import { Pool, PoolDetails, CreatePoolParams } from '@/types/pool'
 import { tokens } from '@/config/tokens'
-import { getTickSpacing, sqrtPriceX96ToTick, sqrtPriceX96ToPrice, getSqrtRatioAtTick } from '@/lib/tickMath'
+import { getTickSpacing, sqrtPriceX96ToTick, sqrtPriceX96ToPrice, getSqrtRatioAtTick, getSqrtPriceX96 } from '@/lib/tickMath'
 
 // Pool ABI for reading pool data
 const POOL_ABI = [
@@ -172,7 +172,10 @@ export class PoolService {
         decimals: 18,
       }
 
-      const currentPrice = sqrtPriceX96ToPrice(sqrtPriceX96)
+      // Raw price from Uniswap is token1/token0 in smallest units
+      // Adjust for decimals to get human-readable price: price * 10^(decimals0 - decimals1)
+      const rawPrice = sqrtPriceX96ToPrice(sqrtPriceX96)
+      const currentPrice = rawPrice * Math.pow(10, token0.decimals - token1.decimals)
 
       return {
         address: poolAddress,
@@ -269,7 +272,8 @@ Please check:
       }
 
       // Initialize pool with price
-      const sqrtPriceX96 = getSqrtRatioAtTick(Math.floor(Math.log(initialPrice) / Math.log(1.0001)))
+      // initialPrice is expected as token1/token0 ratio already adjusted for decimals
+      const sqrtPriceX96 = getSqrtPriceX96(initialPrice)
 
       const initHash = await this.walletClient.writeContract({
         address: poolAddress as Address,
@@ -346,7 +350,10 @@ Please check:
         decimals: 18,
       }
 
-      const currentPrice = sqrtPriceX96ToPrice(sqrtPriceX96)
+      // Raw price from Uniswap is token1/token0 in smallest units
+      // Adjust for decimals to get human-readable price: price * 10^(decimals0 - decimals1)
+      const rawPrice = sqrtPriceX96ToPrice(sqrtPriceX96)
+      const currentPrice = rawPrice * Math.pow(10, token0.decimals - token1.decimals)
 
       return {
         address: poolAddress,
@@ -391,7 +398,7 @@ Please check:
           throw new Error('Wallet client required')
         }
 
-        const sqrtPriceX96 = getSqrtRatioAtTick(Math.floor(Math.log(initialPrice) / Math.log(1.0001)))
+        const sqrtPriceX96 = getSqrtPriceX96(initialPrice)
 
         const initHash = await this.walletClient.writeContract({
           address: poolAddress as Address,

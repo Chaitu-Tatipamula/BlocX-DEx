@@ -476,12 +476,13 @@ export async function getLiquidityPositions(
 export async function getTokenBalance(
   publicClient: any,
   tokenAddress: string,
-  userAddress: Address
+  userAddress: Address,
+  decimals?: number
 ): Promise<string> {
   try {
     if (tokenAddress === 'BCX' || tokenAddress === '0x0000000000000000000000000000000000000000') {
       const balance = await publicClient.getBalance({ address: userAddress })
-      return formatUnits(balance, 18)
+      return formatUnits(balance, decimals ?? 18)
     }
     
     const balance = await publicClient.readContract({
@@ -490,8 +491,21 @@ export async function getTokenBalance(
       functionName: 'balanceOf',
       args: [userAddress],
     })
-    
-    return formatUnits(balance, 18)
+
+    let tokenDecimals = decimals
+    if (tokenDecimals === undefined) {
+      try {
+        tokenDecimals = await publicClient.readContract({
+          address: tokenAddress as Address,
+          abi: ERC20_ABI,
+          functionName: 'decimals',
+        })
+      } catch {
+        tokenDecimals = 18
+      }
+    }
+
+    return formatUnits(balance, tokenDecimals as number)
   } catch (error) {
     console.error('Error getting token balance:', error)
     return '0'

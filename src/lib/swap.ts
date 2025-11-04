@@ -24,11 +24,12 @@ export async function checkPoolExists(
   fee: number
 ): Promise<boolean> {
   try {
+    const [a, b] = token0.toLowerCase() < token1.toLowerCase() ? [token0, token1] : [token1, token0]
     const poolAddress = await publicClient.readContract({
       address: CONTRACT_ADDRESSES.FACTORY,
       abi: FACTORY_ABI,
       functionName: 'getPool',
-      args: [token0, token1, fee],
+      args: [a, b, fee],
     })
     
     return poolAddress !== '0x0000000000000000000000000000000000000000'
@@ -45,11 +46,12 @@ export async function checkPoolLiquidity(
   fee: number
 ): Promise<{ hasLiquidity: boolean; liquidity: string }> {
   try {
+    const [a, b] = token0.toLowerCase() < token1.toLowerCase() ? [token0, token1] : [token1, token0]
     const poolAddress = await publicClient.readContract({
       address: CONTRACT_ADDRESSES.FACTORY,
       abi: FACTORY_ABI,
       functionName: 'getPool',
-      args: [token0, token1, fee],
+      args: [a, b, fee],
     })
     
     if (poolAddress === '0x0000000000000000000000000000000000000000') {
@@ -72,7 +74,7 @@ export async function checkPoolLiquidity(
     })
     
     const hasLiquidity = liquidity > BigInt(0)
-    console.log(`Pool liquidity check: ${hasLiquidity ? 'HAS' : 'NO'} liquidity (${liquidity.toString()})`)
+    console.log(`Pool liquidity check: ${hasLiquidity ? 'HAS' : 'NO'} liquidity (${liquidity.toString()}), (${poolAddress})`)
     
     return { hasLiquidity, liquidity: liquidity.toString() }
   } catch (error) {
@@ -101,7 +103,26 @@ export async function getQuote(
       }
     }
     
-    const amountInWei = parseUnits(amountIn, 18)
+    // Determine decimals for in/out tokens
+    const resolveDecimals = async (addr: string): Promise<number> => {
+      if (addr === 'BCX') return 18
+      const cfg = Object.values(tokens).find(t => t.address.toLowerCase() === addr.toLowerCase())
+      if (cfg) return cfg.decimals
+      try {
+        const d = await publicClient.readContract({
+          address: addr as Address,
+          abi: ERC20_ABI,
+          functionName: 'decimals',
+        })
+        return Number(d)
+      } catch {
+        return 18
+      }
+    }
+    const inDecimals = await resolveDecimals(tokenInAddress)
+    const outDecimals = await resolveDecimals(tokenOutAddress)
+
+    const amountInWei = parseUnits(amountIn, inDecimals)
     const fee = 500 // 0.05% fee tier
     
     // Try V3 QuoterV2 first
@@ -120,7 +141,7 @@ export async function getQuote(
       })
       
       const [amountOut] = quote as [bigint, bigint, number, bigint]
-      const amountOutFormatted = formatUnits(amountOut, 18)
+      const amountOutFormatted = formatUnits(amountOut, outDecimals)
       
       return {
         amountOut: amountOutFormatted,
@@ -140,7 +161,7 @@ export async function getQuote(
           args: [amountInWei, path],
         })
         
-        const amountOut = formatUnits(amounts[1], 18)
+        const amountOut = formatUnits(amounts[1], outDecimals)
         
         return {
           amountOut,
@@ -161,10 +182,11 @@ export async function getQuote(
 export async function approveToken(
   walletClient: any,
   tokenAddress: string,
-  amount: string
+  amount: string,
+  decimals?: number
 ): Promise<string> {
   try {
-    const amountWei = parseUnits(amount, 18)
+    const amountWei = parseUnits(amount, decimals ?? 18)
     
     const hash = await walletClient.writeContract({
       address: tokenAddress as Address,
@@ -183,20 +205,40 @@ export async function approveToken(
 export async function executeSwap(
   walletClient: any,
   publicClient: any,
-  params: SwapParams
+  params: SwapParams & { decimalsIn?: number; decimalsOut?: number }
 ): Promise<string> {
   try {
-    const { tokenIn, tokenOut, amountIn, slippage, deadline, recipient } = params
+    const { tokenIn, tokenOut, amountIn, slippage, deadline, recipient, decimalsIn, decimalsOut } = params
     
     const tokenInAddress = tokenIn === 'BCX' ? tokens.WBCX.address : tokenIn
     const tokenOutAddress = tokenOut === 'BCX' ? tokens.WBCX.address : tokenOut
     
     // Get quote first
     const quote = await getQuote(publicClient, tokenIn, tokenOut, amountIn)
-    const amountInWei = parseUnits(amountIn, 18)
+
+    // Determine decimals for in/out tokens if not provided
+    let inDecimals = decimalsIn
+    let outDecimals = decimalsOut
+    const resolveDecimals = async (addr: string): Promise<number> => {
+      if (addr === 'BCX') return 18
+      try {
+        const d = await publicClient.readContract({
+          address: addr as Address,
+          abi: ERC20_ABI,
+          functionName: 'decimals',
+        })
+        return Number(d)
+      } catch {
+        return 18
+      }
+    }
+    if (inDecimals === undefined) inDecimals = await resolveDecimals(tokenInAddress)
+    if (outDecimals === undefined) outDecimals = await resolveDecimals(tokenOutAddress)
+
+    const amountInWei = parseUnits(amountIn, inDecimals as number)
     const amountOutMin = parseUnits(
       (parseFloat(quote.amountOut) * (1 - slippage / 100)).toString(),
-      18
+      outDecimals as number
     )
     
     const deadlineTimestamp = Math.floor(Date.now() / 1000) + deadline * 60
@@ -251,13 +293,14 @@ export async function executeSwap(
 export async function getTokenBalance(
   publicClient: any,
   tokenAddress: string,
-  userAddress: Address
+  userAddress: Address,
+  decimals?: number
 ): Promise<string> {
   try {
     // Handle native BCX (zero address) or BCX string
     if (tokenAddress === 'BCX' || tokenAddress === '0x0000000000000000000000000000000000000000') {
       const balance = await publicClient.getBalance({ address: userAddress })
-      return formatUnits(balance, 18)
+      return formatUnits(balance, decimals ?? 18)
     }
     
     // Check if it's a valid contract address before calling balanceOf
@@ -271,8 +314,22 @@ export async function getTokenBalance(
       functionName: 'balanceOf',
       args: [userAddress],
     })
-    
-    return formatUnits(balance, 18)
+
+    // Determine token decimals if not provided
+    let tokenDecimals = decimals
+    if (tokenDecimals === undefined) {
+      try {
+        tokenDecimals = await publicClient.readContract({
+          address: tokenAddress as Address,
+          abi: ERC20_ABI,
+          functionName: 'decimals',
+        })
+      } catch {
+        tokenDecimals = 18
+      }
+    }
+
+    return formatUnits(balance, tokenDecimals as number)
   } catch (error) {
     console.error('Error getting token balance:', error)
     return '0'
@@ -282,7 +339,8 @@ export async function getTokenBalance(
 export async function getTokenAllowance(
   publicClient: any,
   tokenAddress: string,
-  userAddress: Address
+  userAddress: Address,
+  decimals?: number
 ): Promise<string> {
   try {
     const allowance = await publicClient.readContract({
@@ -291,8 +349,22 @@ export async function getTokenAllowance(
       functionName: 'allowance',
       args: [userAddress, CONTRACT_ADDRESSES.ROUTER],
     })
-    
-    return formatUnits(allowance, 18)
+
+    // Determine token decimals if not provided
+    let tokenDecimals = decimals
+    if (tokenDecimals === undefined) {
+      try {
+        tokenDecimals = await publicClient.readContract({
+          address: tokenAddress as Address,
+          abi: ERC20_ABI,
+          functionName: 'decimals',
+        })
+      } catch {
+        tokenDecimals = 18
+      }
+    }
+
+    return formatUnits(allowance, tokenDecimals as number)
   } catch (error) {
     console.error('Error getting token allowance:', error)
     return '0'

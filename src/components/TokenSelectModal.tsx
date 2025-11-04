@@ -102,7 +102,7 @@ export function TokenSelectModal({
     
     for (const token of allTokens) {
       try {
-        const balance = await getTokenBalance(publicClient, token.address, address)
+        const balance = await getTokenBalance(publicClient, token.address, address, token.decimals)
         balances[token.address] = balance
       } catch (e) {
         balances[token.address] = '0'
@@ -175,7 +175,7 @@ export function TokenSelectModal({
       // Load balance for new token
       if (isConnected) {
         try {
-          const balance = await getTokenBalance(publicClient, tokenAddress, address)
+          const balance = await getTokenBalance(publicClient, tokenAddress, address, Number(decimals))
           setTokenBalances(prev => ({ ...prev, [tokenAddress]: balance }))
         } catch (e) {
           // Ignore balance errors
@@ -452,7 +452,7 @@ function TokenRow({ token, balance, isSelected, onSelect, isImported }: TokenRow
       className="w-full p-3 hover:bg-gray-50 rounded-lg transition-colors flex items-center justify-between group"
     >
       <div className="flex items-center gap-3">
-        <div className="w-10 h-10 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-full flex items-center justify-center">
+        <div className="w-10 h-10 bg-linear-to-br from-blue-100 to-indigo-100 rounded-full flex items-center justify-center">
           {token.logoURI ? (
             <img src={token.logoURI} alt={token.symbol} className="w-full h-full rounded-full" />
           ) : (

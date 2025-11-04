@@ -120,7 +120,8 @@ export function PositionsCard() {
         address
       )
       if (hash) {
-        addTx({ hash: hash as string, title:  position.liquidity > 0 ? 'Liquidity Decreased' : 'Create Pool & Add Liquidity' });
+        const hasLiquidity = BigInt(position.liquidity) > BigInt(0)
+        addTx({ hash: hash as string, title: hasLiquidity ? 'Liquidity Decreased' : 'Create Pool & Add Liquidity' });
         
       }
       await publicClient.waitForTransactionReceipt({ hash: hash as `0x${string}` })

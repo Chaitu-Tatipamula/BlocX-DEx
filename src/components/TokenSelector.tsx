@@ -33,26 +33,28 @@ export function TokenSelector({
         <button
           onClick={() => setIsModalOpen(true)}
           disabled={disabled}
-          className="flex items-center gap-2 px-3 py-2 bg-white rounded-lg border border-gray-200 hover:border-gray-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+          className="flex items-center gap-2 px-3 py-2 glass-button rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
         >
           {selectedToken ? (
             <>
-              <div className="w-6 h-6 bg-linear-to-br from-blue-100 to-indigo-100 rounded-full flex items-center justify-center shrink-0">
+              <div className="w-6 h-6 bg-white rounded-full flex items-center justify-center shrink-0 p-0.5 border-2 border-white/20">
                 {selectedToken.logoURI ? (
-                  <img src={selectedToken.logoURI} alt={selectedToken.symbol} className="w-full h-full rounded-full" />
+                  <img src={selectedToken.logoURI} alt={selectedToken.symbol} className="w-full h-full rounded-full object-cover" />
                 ) : (
-                  <span className="text-xs font-medium text-blue-700">
-                    {selectedToken.symbol.charAt(0)}
-                  </span>
+                  <div className="w-full h-full rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center">
+                    <span className="text-xs font-medium text-white">
+                      {selectedToken.symbol.charAt(0)}
+                    </span>
+                  </div>
                 )}
               </div>
-              <span className="font-medium text-gray-900">{selectedToken.symbol}</span>
-              <ChevronDown className="w-4 h-4 text-gray-400 shrink-0" />
+              <span className="font-medium text-white">{selectedToken.symbol}</span>
+              <ChevronDown className="w-4 h-4 text-white/70 shrink-0" />
             </>
           ) : (
             <>
-              <span className="text-gray-500 text-sm">Select</span>
-              <ChevronDown className="w-4 h-4 text-gray-400 shrink-0" />
+              <span className="text-white/70 text-sm">Select</span>
+              <ChevronDown className="w-4 h-4 text-white/70 shrink-0" />
             </>
           )}
         </button>
@@ -74,30 +76,32 @@ export function TokenSelector({
       <button
         onClick={() => setIsModalOpen(true)}
         disabled={disabled}
-        className="w-full p-3 bg-gray-50 rounded-lg border border-gray-200 hover:border-gray-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-between min-h-[56px]"
+        className="w-full p-3 glass-button rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-between min-h-[56px]"
       >
         <div className="flex items-center gap-3 flex-1 min-w-0">
           {selectedToken ? (
             <>
-              <div className="w-8 h-8 bg-linear-to-br from-blue-100 to-indigo-100 rounded-full flex items-center justify-center shrink-0">
+              <div className="w-8 h-8 bg-white rounded-full flex items-center justify-center shrink-0 p-0.5 border-2 border-white/20">
                 {selectedToken.logoURI ? (
-                  <img src={selectedToken.logoURI} alt={selectedToken.symbol} className="w-full h-full rounded-full" />
+                  <img src={selectedToken.logoURI} alt={selectedToken.symbol} className="w-full h-full rounded-full object-cover" />
                 ) : (
-                  <span className="text-sm font-medium text-blue-700">
-                    {selectedToken.symbol.charAt(0)}
-                  </span>
+                  <div className="w-full h-full rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center">
+                    <span className="text-sm font-medium text-white">
+                      {selectedToken.symbol.charAt(0)}
+                    </span>
+                  </div>
                 )}
               </div>
               <div className="text-left min-w-0 flex-1">
-                <div className="font-medium text-gray-900 truncate">{selectedToken.symbol}</div>
-                <div className="text-sm text-gray-500 truncate">{selectedToken.name}</div>
+                <div className="font-medium text-white truncate">{selectedToken.symbol}</div>
+                <div className="text-sm text-white/70 truncate">{selectedToken.name}</div>
               </div>
             </>
           ) : (
-            <span className="text-gray-500">Select token</span>
+            <span className="text-white/70">Select token</span>
           )}
         </div>
-        <ChevronDown className="w-5 h-5 text-gray-400 shrink-0" />
+        <ChevronDown className="w-5 h-5 text-white/70 shrink-0" />
       </button>
 
       <TokenSelectModal

@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useAccount, usePublicClient, useWalletClient } from 'wagmi'
 import Link from 'next/link'
 import { PositionService } from '@/services/positionService'
@@ -10,6 +10,7 @@ import { PositionInfoCard } from '@/components/PositionInfoCard'
 import { isInRange, getPriceRangeDisplay, getTokenAmounts, estimateAPR, calculateShareOfPool, formatPrice } from '@/lib/positionAnalysis'
 import { formatBalance } from '@/lib/utils'
 import { Loader2, Plus } from 'lucide-react'
+import { tokenList } from '@/config/tokens'
 
 export default function PositionsPage() {
   const { address: userAddress, isConnected } = useAccount()
@@ -398,13 +399,19 @@ export default function PositionsPage() {
     return acc
   }, {} as Record<string, { token0: string; token1: string; fee: number; positions: PositionDetails[] }>)
 
+  // Helper to get token symbol from address
+  const getTokenSymbol = useCallback((address: string) => {
+    const token = tokenList.find(t => t.address.toLowerCase() === address.toLowerCase())
+    return token?.symbol || address.substring(0, 8) + '...'
+  }, [])
+
   if (!isConnected) {
     return (
-      <div className="min-h-screen bg-linear-to-br from-blue-50 to-indigo-100 py-12 px-4 sm:px-6 lg:px-8">
+      <div className="min-h-screen py-12 px-4 sm:px-6 lg:px-8">
         <div className="max-w-4xl mx-auto">
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 text-center">
-            <h1 className="text-2xl font-semibold text-gray-900 mb-4">My Positions</h1>
-            <p className="text-gray-600">Please connect your wallet to view your liquidity positions.</p>
+          <div className="glass-card p-8 text-center">
+            <h1 className="text-2xl font-semibold text-white mb-4">My Positions</h1>
+            <p className="text-white/70">Please connect your wallet to view your liquidity positions.</p>
           </div>
         </div>
       </div>
@@ -412,13 +419,13 @@ export default function PositionsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-linear-to-br from-blue-50 to-indigo-100 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-6xl mx-auto">
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div className="glass-card p-6">
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h1 className="text-2xl font-semibold text-gray-900">My Positions</h1>
-              <p className="text-sm text-gray-600 mt-1">
+              <h1 className="text-2xl font-semibold text-white">My Positions</h1>
+              <p className="text-sm text-white/70 mt-1">
                 Manage your liquidity positions
               </p>
             </div>
@@ -426,13 +433,13 @@ export default function PositionsPage() {
               <button
                 onClick={fetchPositions}
                 disabled={isLoading}
-                className="px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="glass-button-primary px-4 py-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isLoading ? 'Refreshing...' : 'Refresh'}
               </button>
               <Link
                 href="/liquidity"
-                className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 transition-colors"
+                className="glass-button-primary flex items-center gap-2 px-4 py-2"
               >
                 <Plus className="w-4 h-4" />
                 New Position
@@ -441,25 +448,25 @@ export default function PositionsPage() {
           </div>
 
           {error && (
-            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-              <p className="text-sm text-red-600">{error}</p>
+            <div className="mb-4 p-3 glass-card border border-red-500/30 rounded-lg">
+              <p className="text-sm text-red-400">{error}</p>
             </div>
           )}
 
           {successMessage && (
-            <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
-              <p className="text-sm text-green-600">{successMessage}</p>
+            <div className="mb-4 p-3 glass-card border border-green-500/30 rounded-lg">
+              <p className="text-sm text-green-300">{successMessage}</p>
             </div>
           )}
 
           {isLoading && positions.length === 0 ? (
             <div className="text-center py-12">
-              <Loader2 className="w-8 h-8 animate-spin text-blue-600 mx-auto mb-2" />
-              <p className="text-gray-600">Loading positions...</p>
+              <Loader2 className="w-8 h-8 animate-spin text-white mx-auto mb-2" />
+              <p className="text-white/70">Loading positions...</p>
             </div>
           ) : enhancedPositions.length === 0 ? (
             <div className="text-center py-12">
-              <div className="text-gray-400 mb-4">
+              <div className="text-white/40 mb-4">
                 <svg
                   className="w-16 h-16 mx-auto"
                   fill="none"
@@ -474,29 +481,32 @@ export default function PositionsPage() {
                   />
                 </svg>
               </div>
-              <p className="text-gray-600 mb-4">No liquidity positions found.</p>
+              <p className="text-white/70 mb-4">No liquidity positions found.</p>
               <Link
                 href="/liquidity"
-                className="text-blue-600 hover:text-blue-700 font-medium"
+                className="text-white hover:text-white/80 font-medium"
               >
                 Create your first position →
               </Link>
             </div>
           ) : (
             <div className="space-y-6">
-              {Object.values(groupedPositions).map((group, index) => (
-                <div key={index} className="space-y-3">
-                  <div className="flex items-center gap-2 mb-2">
-                    <h2 className="text-lg font-semibold text-gray-900">
-                      {group.token0.substring(0, 8)}... / {group.token1.substring(0, 8)}...
-                    </h2>
-                    <span className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-full">
-                      {(group.fee / 10000).toFixed(2)}% Fee
-                    </span>
-                    <span className="text-sm text-gray-500">
-                      {group.positions.length} {group.positions.length === 1 ? 'position' : 'positions'}
-                    </span>
-                  </div>
+              {Object.values(groupedPositions).map((group, index) => {
+                const token0Symbol = getTokenSymbol(group.token0)
+                const token1Symbol = getTokenSymbol(group.token1)
+                return (
+                  <div key={index} className="space-y-3">
+                    <div className="flex items-center gap-2 mb-2">
+                      <h2 className="text-lg font-semibold text-white">
+                        {token0Symbol} / {token1Symbol}
+                      </h2>
+                      <span className="px-2 py-1 glass-button text-xs rounded-full">
+                        {(group.fee / 10000).toFixed(2)}% Fee
+                      </span>
+                      <span className="text-sm text-white/60">
+                        {group.positions.length} {group.positions.length === 1 ? 'position' : 'positions'}
+                      </span>
+                    </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {group.positions.map((position) => (
                       <PositionInfoCard
@@ -511,7 +521,8 @@ export default function PositionsPage() {
                     ))}
                   </div>
                 </div>
-              ))}
+              )
+              })}
             </div>
           )}
         </div>
@@ -519,15 +530,15 @@ export default function PositionsPage() {
 
       {/* Increase Liquidity Modal */}
       {showIncreaseModal && selectedPosition && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 glass-modal-backdrop flex items-center justify-center z-50">
+          <div className="glass-modal p-6 w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-6">
-              <h3 className="text-xl font-semibold text-gray-900">
+              <h3 className="text-xl font-semibold text-white">
                 Increase Liquidity - Position #{selectedPosition.tokenId}
               </h3>
               <button
                 onClick={handleCloseIncreaseModal}
-                className="text-gray-400 hover:text-gray-600"
+                className="text-white/60 hover:text-white transition-colors"
               >
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -539,34 +550,34 @@ export default function PositionsPage() {
               {/* Left Column - Position Info & Input */}
               <div className="space-y-6">
                 {/* Position Range Info */}
-                <div className="bg-gray-50 rounded-lg p-4">
-                  <h4 className="text-sm font-medium text-gray-900 mb-3">Position Range</h4>
+                <div className="glass-card rounded-lg p-4">
+                  <h4 className="text-sm font-medium text-white mb-3">Position Range</h4>
                   <div className="space-y-2">
                     <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">Price Range:</span>
-                      <span className="font-medium text-gray-900">
+                      <span className="text-white/70">Price Range:</span>
+                      <span className="font-medium text-white">
                         {formatPrice(selectedPosition.priceRangeLower)} - {formatPrice(selectedPosition.priceRangeUpper)}
                       </span>
                     </div>
                     <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">Current Price:</span>
-                      <span className="font-medium text-gray-900">
+                      <span className="text-white/70">Current Price:</span>
+                      <span className="font-medium text-white">
                         {selectedPosition.currentPrice ? formatPrice(selectedPosition.currentPrice) : 'Loading...'}
                       </span>
                     </div>
                     <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">Status:</span>
+                      <span className="text-white/70">Status:</span>
                       <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                         selectedPosition.inRange 
-                          ? 'bg-green-100 text-green-800' 
-                          : 'bg-red-100 text-red-800'
+                          ? 'bg-green-500/20 text-green-300 border border-green-500/30' 
+                          : 'bg-red-500/20 text-red-300 border border-red-500/30'
                       }`}>
                         {selectedPosition.inRange ? 'In Range' : 'Out of Range'}
                       </span>
                     </div>
                     <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">Fee Tier:</span>
-                      <span className="font-medium text-gray-900">
+                      <span className="text-white/70">Fee Tier:</span>
+                      <span className="font-medium text-white">
                         {(selectedPosition.fee / 10000).toFixed(2)}%
                       </span>
                     </div>
@@ -574,18 +585,18 @@ export default function PositionsPage() {
                 </div>
 
                 {/* Current Position Amounts */}
-                <div className="bg-blue-50 rounded-lg p-4">
-                  <h4 className="text-sm font-medium text-gray-900 mb-3">Current Position</h4>
+                <div className="glass-card border border-blue-500/30 rounded-lg p-4">
+                  <h4 className="text-sm font-medium text-white mb-3">Current Position</h4>
                   <div className="space-y-2">
                     <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">Token 0 Amount:</span>
-                      <span className="font-medium text-gray-900">
+                      <span className="text-white/70">Token 0 Amount:</span>
+                      <span className="font-medium text-white">
                         {selectedPosition.amount0 ? formatBalance(selectedPosition.amount0) : '0.00'}
                       </span>
                     </div>
                     <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">Token 1 Amount:</span>
-                      <span className="font-medium text-gray-900">
+                      <span className="text-white/70">Token 1 Amount:</span>
+                      <span className="font-medium text-white">
                         {selectedPosition.amount1 ? formatBalance(selectedPosition.amount1) : '0.00'}
                       </span>
                     </div>
@@ -595,7 +606,7 @@ export default function PositionsPage() {
                 {/* Input Fields */}
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-white/80 mb-2">
                       Additional Amount for Token 0
                     </label>
                     <input
@@ -603,12 +614,12 @@ export default function PositionsPage() {
                       value={increaseAmount0}
                       onChange={(e) => setIncreaseAmount0(e.target.value)}
                       placeholder="0.0"
-                      className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="glass-input w-full px-3 py-2 text-white"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-white/80 mb-2">
                       Additional Amount for Token 1
                     </label>
                     <input
@@ -616,23 +627,23 @@ export default function PositionsPage() {
                       value={increaseAmount1}
                       onChange={(e) => setIncreaseAmount1(e.target.value)}
                       placeholder="0.0"
-                      className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="glass-input w-full px-3 py-2 text-white"
                     />
                   </div>
 
                   {/* Slippage Tolerance */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-white/80 mb-2">
                       Slippage Tolerance
                     </label>
                     <div className="flex gap-2">
                       <button
                         type="button"
                         onClick={() => setSlippageTolerance(0.1)}
-                        className={`px-3 py-1 text-sm rounded ${
+                        className={`px-3 py-1 text-sm rounded-xl ${
                           slippageTolerance === 0.1
-                            ? 'bg-blue-500 text-white'
-                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                            ? 'glass-button-primary'
+                            : 'glass-button'
                         }`}
                       >
                         0.1%
@@ -640,10 +651,10 @@ export default function PositionsPage() {
                       <button
                         type="button"
                         onClick={() => setSlippageTolerance(0.5)}
-                        className={`px-3 py-1 text-sm rounded ${
+                        className={`px-3 py-1 text-sm rounded-xl ${
                           slippageTolerance === 0.5
-                            ? 'bg-blue-500 text-white'
-                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                            ? 'glass-button-primary'
+                            : 'glass-button'
                         }`}
                       >
                         0.5%
@@ -651,10 +662,10 @@ export default function PositionsPage() {
                       <button
                         type="button"
                         onClick={() => setSlippageTolerance(1.0)}
-                        className={`px-3 py-1 text-sm rounded ${
+                        className={`px-3 py-1 text-sm rounded-xl ${
                           slippageTolerance === 1.0
-                            ? 'bg-blue-500 text-white'
-                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                            ? 'glass-button-primary'
+                            : 'glass-button'
                         }`}
                       >
                         1.0%
@@ -667,12 +678,12 @@ export default function PositionsPage() {
                           min="0.1"
                           max="50"
                           step="0.1"
-                          className="w-20 px-2 py-1 text-sm border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                          className="glass-input w-20 px-2 py-1 text-sm text-white"
                         />
-                        <span className="text-sm text-gray-600">%</span>
+                        <span className="text-sm text-white/60">%</span>
                       </div>
                     </div>
-                    <p className="text-xs text-gray-500 mt-1">
+                    <p className="text-xs text-white/50 mt-1">
                       Your transaction will revert if the price changes unfavorably by more than this percentage.
                     </p>
                   </div>
@@ -681,16 +692,16 @@ export default function PositionsPage() {
 
               {/* Right Column - Preview */}
               <div className="space-y-4">
-                <div className="bg-gray-50 rounded-lg p-4">
-                  <h4 className="text-sm font-medium text-gray-900 mb-3">Liquidity Preview</h4>
+                <div className="glass-card rounded-lg p-4">
+                  <h4 className="text-sm font-medium text-white mb-3">Liquidity Preview</h4>
                   <div className="space-y-3">
-                    <div className="text-center p-3 bg-white rounded-lg border">
-                      <div className="text-2xl font-bold text-gray-900">
+                    <div className="text-center p-3 glass-card rounded-lg border border-white/10">
+                      <div className="text-2xl font-bold text-white">
                         +{formatBalance((parseFloat(adjustedAmount0 || '0') + parseFloat(adjustedAmount1 || '0')).toString())}
                       </div>
-                      <div className="text-sm text-gray-600">Additional Liquidity</div>
+                      <div className="text-sm text-white/70">Additional Liquidity</div>
                       {amountAdjustment && (
-                        <div className="mt-2 text-xs text-orange-600">
+                        <div className="mt-2 text-xs text-orange-300">
                           (Adjusted from {formatBalance((parseFloat(increaseAmount0 || '0') + parseFloat(increaseAmount1 || '0')).toString())})
                         </div>
                       )}
@@ -698,16 +709,16 @@ export default function PositionsPage() {
                     
                     <div className="space-y-2">
                       <div className="flex justify-between text-sm">
-                        <span className="text-gray-600">New Token 0 Total:</span>
-                        <span className="font-medium text-gray-900">
+                        <span className="text-white/70">New Token 0 Total:</span>
+                        <span className="font-medium text-white">
                           {formatBalance(
                             (parseFloat(selectedPosition.amount0 || '0') + parseFloat(adjustedAmount0 || '0')).toString()
                           )}
                         </span>
                       </div>
                       <div className="flex justify-between text-sm">
-                        <span className="text-gray-600">New Token 1 Total:</span>
-                        <span className="font-medium text-gray-900">
+                        <span className="text-white/70">New Token 1 Total:</span>
+                        <span className="font-medium text-white">
                           {formatBalance(
                             (parseFloat(selectedPosition.amount1 || '0') + parseFloat(adjustedAmount1 || '0')).toString()
                           )}
@@ -716,10 +727,10 @@ export default function PositionsPage() {
                     </div>
 
                     {selectedPosition.inRange && (
-                      <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                      <div className="p-3 glass-card border border-green-500/30 rounded-lg">
                         <div className="flex items-center gap-2">
-                          <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                          <span className="text-sm font-medium text-green-800">
+                          <div className="w-2 h-2 bg-green-400 rounded-full"></div>
+                          <span className="text-sm font-medium text-green-300">
                             Position is in range - earning fees
                           </span>
                         </div>
@@ -727,14 +738,14 @@ export default function PositionsPage() {
                     )}
 
                 {amountAdjustment && (
-                  <div className="p-3 bg-orange-50 border border-orange-200 rounded-lg">
+                  <div className="p-3 glass-card border border-orange-500/30 rounded-lg">
                     <div className="flex items-center gap-2 mb-2">
-                      <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
-                      <span className="text-sm font-medium text-orange-800">
+                      <div className="w-2 h-2 bg-orange-400 rounded-full"></div>
+                      <span className="text-sm font-medium text-orange-300">
                         Amounts Adjusted
                       </span>
                     </div>
-                    <div className="text-xs text-orange-700">
+                    <div className="text-xs text-orange-200">
                       <div className="mb-1">{amountAdjustment.reason}</div>
                       <div className="space-y-1">
                         <div>Token 0: {formatBalance(amountAdjustment.original0)} → {formatBalance(amountAdjustment.adjusted0)}</div>
@@ -744,20 +755,20 @@ export default function PositionsPage() {
                   </div>
                 )}
 
-                <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <div className="p-3 glass-card border border-blue-500/30 rounded-lg">
                   <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                    <span className="text-sm font-medium text-blue-800">
+                    <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
+                    <span className="text-sm font-medium text-blue-300">
                       Slippage tolerance: {slippageTolerance}% (your choice)
                     </span>
                   </div>
                 </div>
 
                     {!selectedPosition.inRange && (
-                      <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                      <div className="p-3 glass-card border border-red-500/30 rounded-lg">
                         <div className="flex items-center gap-2">
-                          <div className="w-2 h-2 bg-red-500 rounded-full"></div>
-                          <span className="text-sm font-medium text-red-800">
+                          <div className="w-2 h-2 bg-red-400 rounded-full"></div>
+                          <span className="text-sm font-medium text-red-300">
                             Position is out of range - not earning fees
                           </span>
                         </div>
@@ -770,14 +781,14 @@ export default function PositionsPage() {
                 <div className="flex gap-3 pt-4">
                   <button
                     onClick={handleCloseIncreaseModal}
-                    className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors"
+                    className="glass-button flex-1 px-4 py-2 font-medium rounded-xl"
                   >
                     Cancel
                   </button>
                   <button
                     onClick={handleIncreaseLiquidity}
                     disabled={!increaseAmount0 || !increaseAmount1 || isLoading}
-                    className="flex-1 px-4 py-2 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    className="glass-button-primary flex-1 px-4 py-2 font-medium rounded-xl disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {isLoading ? 'Increasing...' : 'Increase Liquidity'}
                   </button>

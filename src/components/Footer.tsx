@@ -3,7 +3,7 @@ import Link from 'next/link'
 
 export default function Footer() {
   return (
-    <footer className="bg-gradient-to-b from-slate-900/90 to-slate-950/95 text-slate-100 border-t border-white/5">
+    <footer className="glass-nav border-t border-white/10 text-white">
       <div className="max-w-6xl mx-auto px-6 py-10 flex flex-col md:flex-row md:items-start md:justify-between gap-8">
         <div className="flex items-start gap-4 min-w-[180px]">
           <div className="flex items-center">

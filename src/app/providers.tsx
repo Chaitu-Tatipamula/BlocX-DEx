@@ -3,7 +3,7 @@
 import '@rainbow-me/rainbowkit/styles.css'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { WagmiProvider } from 'wagmi'
-import { RainbowKitProvider, getDefaultConfig } from '@rainbow-me/rainbowkit'
+import { RainbowKitProvider, getDefaultConfig, darkTheme } from '@rainbow-me/rainbowkit'
 import { blockx } from '../config/chains'
 import { TxProvider } from "../context/tx";
 import TxToast from "../components/TxToast";
@@ -24,7 +24,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
       <WagmiProvider config={config}>
         <QueryClientProvider client={queryClient}>
-          <RainbowKitProvider>
+          <RainbowKitProvider theme={darkTheme()}>
             {children}
           </RainbowKitProvider>
         </QueryClientProvider>

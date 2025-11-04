@@ -16,7 +16,7 @@ export function Navigation() {
   ]
 
   return (
-    <header className="sticky top-0 z-50 bg-white/70 backdrop-blur-md border-b border-gray-100">
+    <header className="sticky top-0 z-50 glass-nav">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-14">
           {/* Logo */}
@@ -32,10 +32,10 @@ export function Navigation() {
               <Link
                 key={item.href}
                 href={item.href}
-                className={`py-2 text-sm font-medium transition-colors ${
+                className={`py-2 px-3 text-sm font-medium transition-all rounded-lg ${
                   pathname === item.href || (item.href === '/swap' && pathname === '/')
-                    ? 'text-blue-700'
-                    : 'text-gray-600 hover:text-gray-900'
+                    ? 'text-white bg-white/10 backdrop-blur-md border border-white/20'
+                    : 'text-white/70 hover:text-white hover:bg-white/5'
                 }`}
               >
                 {item.label}
@@ -50,16 +50,16 @@ export function Navigation() {
         </div>
 
         {/* Mobile Navigation */}
-        <div className="md:hidden border-t border-gray-100">
+        <div className="md:hidden border-t border-white/10">
           <div className="flex justify-around py-2">
             {navItems.map((item) => (
               <Link
                 key={item.href}
                 href={item.href}
-                className={`px-3 py-2 text-sm font-medium transition-colors ${
+                className={`px-3 py-2 text-sm font-medium transition-all rounded-lg ${
                   pathname === item.href || (item.href === '/swap' && pathname === '/')
-                    ? 'text-blue-700'
-                    : 'text-gray-600 hover:text-gray-900'
+                    ? 'text-white bg-white/10 backdrop-blur-md border border-white/20'
+                    : 'text-white/70 hover:text-white hover:bg-white/5'
                 }`}
               >
                 {item.label}

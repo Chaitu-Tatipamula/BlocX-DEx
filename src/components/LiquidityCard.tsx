@@ -650,21 +650,21 @@ export function LiquidityCard() {
   const canAddLiquidity = isConnected && hasValidAmounts && !isLoading && minTick < maxTick
 
   return (
-    <div className="w-full max-w-4xl mx-auto bg-white rounded-2xl shadow-xl border border-gray-200">
+    <div className="w-full max-w-4xl mx-auto glass-card">
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-gray-200">
+      <div className="flex items-center justify-between p-4 border-b border-white/10">
         <div>
-        <h1 className="text-xl font-semibold">Add Liquidity</h1>
+        <h1 className="text-xl font-semibold text-white">Add Liquidity</h1>
           {urlParams.token0 && urlParams.token1 && (
             <div className="flex items-center gap-2 mt-1">
-              <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-              <p className="text-xs text-blue-600">
+              <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
+              <p className="text-xs text-blue-300">
                 Pre-selected from swap: {urlParams.token0Symbol} → {urlParams.token1Symbol}
               </p>
             </div>
           )}
           {lastUpdated && (
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-xs text-white/50 mt-1">
               Last updated: {lastUpdated.toLocaleTimeString()}
             </p>
           )}
@@ -673,14 +673,14 @@ export function LiquidityCard() {
           <button
             onClick={() => fetchBalances(true)}
             disabled={isRefreshing}
-            className="p-2 hover:bg-gray-100 rounded-full disabled:opacity-50 disabled:cursor-not-allowed"
+            className="p-2 hover:bg-white/10 rounded-full disabled:opacity-50 disabled:cursor-not-allowed text-white transition-colors"
             title="Refresh balances and pool info"
           >
             <RefreshCw className={`w-5 h-5 ${isRefreshing ? 'animate-spin' : ''}`} />
           </button>
         <button
           onClick={() => setShowSettings(true)}
-          className="p-2 hover:bg-gray-100 rounded-full"
+          className="p-2 hover:bg-white/10 rounded-full text-white transition-colors"
         >
           <Settings className="w-5 h-5" />
         </button>
@@ -689,20 +689,20 @@ export function LiquidityCard() {
 
       {/* Pool Info */}
       {loadingPoolInfo ? (
-        <div className="p-4 bg-blue-50 border-b border-gray-200 flex items-center gap-2">
-          <Loader2 className="w-4 h-4 animate-spin" />
-          <span className="text-sm text-blue-700">Loading pool information...</span>
+        <div className="p-4 glass-card border-b border-white/10 flex items-center gap-2">
+          <Loader2 className="w-4 h-4 animate-spin text-blue-400" />
+          <span className="text-sm text-blue-300">Loading pool information...</span>
         </div>
       ) : poolDataLoaded && poolExists ? (
-        <div className="p-4 bg-green-50 border-b border-gray-200">
-          <div className="text-sm text-green-700 flex items-center gap-2">
+        <div className="p-4 glass-card border-b border-white/10 border border-green-500/30">
+          <div className="text-sm text-green-300 flex items-center gap-2">
             <Info className="w-4 h-4" />
             <span>Pool exists • Current price: {currentPrice ? formatPrice(currentPrice) : 'N/A'}</span>
           </div>
         </div>
       ) : poolDataLoaded ? (
-        <div className="p-4 bg-yellow-50 border-b border-gray-200">
-          <div className="text-sm text-yellow-700 flex items-center gap-2">
+        <div className="p-4 glass-card border-b border-white/10 border border-yellow-500/30">
+          <div className="text-sm text-yellow-300 flex items-center gap-2">
             <Info className="w-4 h-4" />
             <span>Pool doesn't exist • Will be created on first liquidity add</span>
           </div>
@@ -719,8 +719,8 @@ export function LiquidityCard() {
         {/* Token A */}
         <div>
           <div className="flex items-center justify-between mb-2">
-            <span className="text-sm text-gray-600">Token A</span>
-            <span className="text-sm text-gray-500">
+            <span className="text-sm text-white/70">Token A</span>
+            <span className="text-sm text-white/60">
               Balance: {formatBalance(tokenABalance)}
             </span>
           </div>
@@ -735,8 +735,8 @@ export function LiquidityCard() {
         {/* Token B */}
         <div>
           <div className="flex items-center justify-between mb-2">
-            <span className="text-sm text-gray-600">Token B</span>
-            <span className="text-sm text-gray-500">
+            <span className="text-sm text-white/70">Token B</span>
+            <span className="text-sm text-white/60">
               Balance: {formatBalance(tokenBBalance)}
             </span>
           </div>
@@ -760,7 +760,7 @@ export function LiquidityCard() {
             {/* Initial price (only when pool does not exist) */}
             {poolDataLoaded && !poolExists && (
               <div className="mt-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-white/80 mb-2">
                   Initial price (1 {tokenA?.symbol} in {tokenB?.symbol})
                 </label>
               <input
@@ -768,12 +768,12 @@ export function LiquidityCard() {
                   value={initialPriceInput}
                   onChange={(e) => setInitialPriceInput(e.target.value)}
                   placeholder="e.g. 0.1"
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="glass-input w-full px-3 py-2 text-white"
                   min="0"
                   step="any"
                   disabled={isLoading}
                 />
-                <p className="text-xs text-gray-500 mt-1">
+                <p className="text-xs text-white/50 mt-1">
                   Used to initialize the pool price. This sets the starting ratio.
                 </p>
               </div>
@@ -788,21 +788,21 @@ export function LiquidityCard() {
                 disabled={isLoading}
               />
             ) : (
-              <div className="text-center py-8 bg-gray-50 rounded-lg">
-                <Loader2 className="w-6 h-6 animate-spin text-blue-600 mx-auto mb-2" />
-                <p className="text-sm text-gray-600">Loading price data...</p>
+              <div className="text-center py-8 glass-card rounded-lg">
+                <Loader2 className="w-6 h-6 animate-spin text-white mx-auto mb-2" />
+                <p className="text-sm text-white/70">Loading price data...</p>
               </div>
             )}
 
             {/* Amount Inputs */}
             <div className="space-y-3">
-              <label className="block text-sm font-medium text-gray-700">
+              <label className="block text-sm font-medium text-white/80">
                 Deposit Amounts
               </label>
               
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs text-gray-600 mb-1">
+                  <label className="block text-xs text-white/70 mb-1">
                     {tokenA?.symbol} Amount
                   </label>
                   <div className="relative">
@@ -811,12 +811,12 @@ export function LiquidityCard() {
                       value={amountA}
                       onChange={(e) => setAmountA(e.target.value)}
                       placeholder="0.0"
-                      className="w-full px-3 py-2 pr-16 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="glass-input w-full px-3 py-2 pr-16 text-white"
                       disabled={isLoading}
                     />
                     <button
                       onClick={handleMaxClickA}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-blue-600 hover:text-blue-700 font-medium"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-blue-300 hover:text-blue-200 font-medium"
                       disabled={isLoading}
                     >
                       MAX
@@ -825,7 +825,7 @@ export function LiquidityCard() {
                 </div>
 
                 <div>
-                  <label className="block text-xs text-gray-600 mb-1">
+                  <label className="block text-xs text-white/70 mb-1">
                     {tokenB?.symbol} Amount
                   </label>
                   <div className="relative">
@@ -834,12 +834,12 @@ export function LiquidityCard() {
                       value={amountB}
                       onChange={(e) => handleAmountBChange(e.target.value)}
                       placeholder="0.0"
-                      className="w-full px-3 py-2 pr-16 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="glass-input w-full px-3 py-2 pr-16 text-white"
                 disabled={isLoading}
               />
               <button
                 onClick={handleMaxClickB}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-blue-600 hover:text-blue-700 font-medium"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-blue-300 hover:text-blue-200 font-medium"
                 disabled={isLoading}
               >
                 MAX
@@ -851,11 +851,11 @@ export function LiquidityCard() {
 
         {/* Error Message */}
         {error && (
-              <div className="text-sm text-red-500 bg-red-50 border border-red-200 p-2 rounded flex items-center justify-between gap-2">
+              <div className="text-sm text-red-400 glass-card border border-red-500/30 p-2 rounded flex items-center justify-between gap-2">
                 <span className="flex-1 truncate">{error}</span>
                 <button
                   onClick={() => setError('')}
-                  className="text-red-600 hover:text-red-800 font-medium text-xs shrink-0"
+                  className="text-red-300 hover:text-red-200 font-medium text-xs shrink-0"
                   title="Dismiss error"
                 >
                   ✕
@@ -867,7 +867,7 @@ export function LiquidityCard() {
         <button
           onClick={handleAddLiquidity}
           disabled={!canAddLiquidity}
-          className="w-full py-3 px-4 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          className="glass-button-primary w-full py-3 px-4 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {isLoading ? (
             <div className="flex items-center justify-center gap-2">
@@ -885,7 +885,7 @@ export function LiquidityCard() {
           </div>
 
           {/* Right Column - Preview */}
-          <div className="bg-gray-50 rounded-lg p-6">
+          <div className="glass-card rounded-lg p-6">
             {poolDataLoaded && currentPrice !== null && minTick < maxTick ? (
               <LiquidityPreview
                 currentPrice={currentPrice}
@@ -900,7 +900,7 @@ export function LiquidityCard() {
               />
             ) : (
               <div className="text-center py-12">
-                <p className="text-sm text-gray-500">
+                <p className="text-sm text-white/50">
                   Configure your position to see preview
                 </p>
               </div>

@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import { useAccount, usePublicClient, useWalletClient } from 'wagmi'
 import Link from 'next/link'
 import { use } from 'react'
@@ -18,6 +18,7 @@ import {
   getPositionStatusBadge 
 } from '@/lib/positionAnalysis'
 import { Loader2, ArrowLeft, TrendingUp, RefreshCw } from 'lucide-react'
+import { tokenList, type Token } from '@/config/tokens'
 
 export default function PositionDetailPage({ params }: { params: Promise<{ tokenId: string }> }) {
   const resolvedParams = use(params)
@@ -165,12 +166,23 @@ export default function PositionDetailPage({ params }: { params: Promise<{ token
     }
   }
 
+  // Get token info from addresses
+  const token0 = useMemo(() => {
+    if (!position) return null
+    return tokenList.find(t => t.address.toLowerCase() === position.token0.toLowerCase()) || null
+  }, [position?.token0])
+  
+  const token1 = useMemo(() => {
+    if (!position) return null
+    return tokenList.find(t => t.address.toLowerCase() === position.token1.toLowerCase()) || null
+  }, [position?.token1])
+
   if (!isConnected) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-12 px-4 sm:px-6 lg:px-8">
+      <div className="min-h-screen py-12 px-4 sm:px-6 lg:px-8">
         <div className="max-w-4xl mx-auto">
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 text-center">
-            <p className="text-gray-600">Please connect your wallet to view position details.</p>
+          <div className="glass-card p-8 text-center">
+            <p className="text-white/70">Please connect your wallet to view position details.</p>
           </div>
         </div>
       </div>
@@ -180,13 +192,13 @@ export default function PositionDetailPage({ params }: { params: Promise<{ token
   const statusBadge = position ? getPositionStatusBadge(position.inRange) : null
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-4xl mx-auto">
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div className="glass-card p-6">
           {/* Back Button */}
           <Link
             href="/positions"
-            className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-6"
+            className="inline-flex items-center gap-2 text-white/70 hover:text-white mb-6 transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
             Back to Positions
@@ -195,20 +207,20 @@ export default function PositionDetailPage({ params }: { params: Promise<{ token
           {/* Loading State */}
           {isLoading && (
             <div className="text-center py-12">
-              <Loader2 className="w-8 h-8 animate-spin text-blue-600 mx-auto mb-2" />
-              <p className="text-gray-600">Loading position details...</p>
+              <Loader2 className="w-8 h-8 animate-spin text-white mx-auto mb-2" />
+              <p className="text-white/70">Loading position details...</p>
             </div>
           )}
 
           {/* Error State */}
           {error && !isLoading && (
             <div className="text-center py-12">
-              <div className="text-red-500 bg-red-50 p-4 rounded-lg inline-block mb-4">
+              <div className="text-red-400 glass-card border border-red-500/30 p-4 rounded-lg inline-block mb-4">
                 {error}
               </div>
               <Link
                 href="/positions"
-                className="text-blue-600 hover:text-blue-700 font-medium"
+                className="text-white hover:text-white/80 font-medium"
               >
                 View all positions →
               </Link>
@@ -221,23 +233,72 @@ export default function PositionDetailPage({ params }: { params: Promise<{ token
               {/* Header */}
               <div className="flex items-center justify-between">
                 <div>
-                  <h1 className="text-2xl font-semibold text-gray-900 mb-2">
+                  <h1 className="text-2xl font-semibold text-white mb-2">
                     Position #{position.tokenId}
                   </h1>
                   <div className="flex items-center gap-3">
-                    <span className="text-gray-600">
-                      {position.token0.substring(0, 8)}... / {position.token1.substring(0, 8)}...
-                    </span>
-                    <span className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-full">
+                    {/* Token Pair with Logos */}
+                    <div className="flex items-center gap-2">
+                      <div className="flex -space-x-2">
+                        <div className="relative w-8 h-8">
+                          {token0?.logoURI ? (
+                            <div className="w-8 h-8 rounded-full bg-white p-0.5 border-2 border-white/20">
+                              <img 
+                                src={token0.logoURI} 
+                                alt={token0.symbol}
+                                className="w-full h-full rounded-full object-cover"
+                                onError={(e) => {
+                                  const target = e.target as HTMLImageElement
+                                  target.style.display = 'none'
+                                  const fallback = target.parentElement?.nextElementSibling as HTMLElement
+                                  if (fallback) fallback.style.display = 'flex'
+                                }}
+                              />
+                            </div>
+                          ) : null}
+                          <div className={`w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 border-2 border-white/20 flex items-center justify-center text-white text-xs font-bold ${token0?.logoURI ? 'absolute inset-0 hidden' : ''}`}>
+                            {token0?.symbol?.charAt(0) || position.token0.substring(0, 1)}
+                          </div>
+                        </div>
+                        <div className="relative w-8 h-8">
+                          {token1?.logoURI ? (
+                            <div className="w-8 h-8 rounded-full bg-white p-0.5 border-2 border-white/20">
+                              <img 
+                                src={token1.logoURI} 
+                                alt={token1.symbol}
+                                className="w-full h-full rounded-full object-cover"
+                                onError={(e) => {
+                                  const target = e.target as HTMLImageElement
+                                  target.style.display = 'none'
+                                  const fallback = target.parentElement?.nextElementSibling as HTMLElement
+                                  if (fallback) fallback.style.display = 'flex'
+                                }}
+                              />
+                            </div>
+                          ) : null}
+                          <div className={`w-8 h-8 rounded-full bg-gradient-to-br from-purple-400 to-purple-600 border-2 border-white/20 flex items-center justify-center text-white text-xs font-bold ${token1?.logoURI ? 'absolute inset-0 hidden' : ''}`}>
+                            {token1?.symbol?.charAt(0) || position.token1.substring(0, 1)}
+                          </div>
+                        </div>
+                      </div>
+                      <span className="text-white">
+                        {token0?.symbol || position.token0.substring(0, 8)}... / {token1?.symbol || position.token1.substring(0, 8)}...
+                      </span>
+                    </div>
+                    <span className="px-2 py-1 glass-button text-xs rounded-full">
                       {(position.fee / 10000).toFixed(2)}% Fee
                     </span>
                     {statusBadge && (
-                      <span className={`px-3 py-1 rounded-full text-sm font-medium ${statusBadge.bg} ${statusBadge.text}`}>
+                      <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                        position.inRange 
+                          ? 'bg-green-500/20 text-green-300 border border-green-500/30' 
+                          : 'bg-yellow-500/20 text-yellow-300 border border-yellow-500/30'
+                      }`}>
                         {statusBadge.label}
                       </span>
                     )}
                     {lastUpdated && (
-                      <span className="text-xs text-gray-500">
+                      <span className="text-xs text-white/50">
                         Updated: {lastUpdated.toLocaleTimeString()}
                       </span>
                     )}
@@ -246,7 +307,7 @@ export default function PositionDetailPage({ params }: { params: Promise<{ token
                 <button
                   onClick={() => fetchPositionDetails(true)}
                   disabled={isRefreshing}
-                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  className="glass-button-primary flex items-center gap-2 px-4 py-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
                   {isRefreshing ? 'Refreshing...' : 'Refresh'}
@@ -255,78 +316,78 @@ export default function PositionDetailPage({ params }: { params: Promise<{ token
 
               {/* Success/Error Messages */}
               {successMessage && (
-                <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
-                  <p className="text-sm text-green-600">{successMessage}</p>
+                <div className="p-3 glass-card border border-green-500/30 rounded-lg">
+                  <p className="text-sm text-green-300">{successMessage}</p>
                 </div>
               )}
 
               {/* Price Range Visualization */}
-              <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg p-6">
-                <h2 className="text-lg font-semibold text-gray-900 mb-4">Price Range</h2>
+              <div className="glass-card rounded-lg p-6">
+                <h2 className="text-lg font-semibold text-white mb-4">Price Range</h2>
                 
                 {/* Visual Range Bar */}
                 <div className="mb-4">
-                  <div className="flex justify-between text-sm text-gray-600 mb-2">
+                  <div className="flex justify-between text-sm text-white/70 mb-2">
                     <div>
                       <span className="font-medium">Min Price</span>
-                      <p className="text-lg font-bold text-gray-900">
+                      <p className="text-lg font-bold text-white">
                         {formatPrice(position.priceRangeLower)}
                       </p>
                     </div>
                     <div className="text-center">
                       <span className="font-medium">Current Price</span>
-                      <p className="text-lg font-bold text-orange-600">
+                      <p className="text-lg font-bold text-orange-400">
                         {formatPrice(position.currentPrice)}
                       </p>
                     </div>
                     <div className="text-right">
                       <span className="font-medium">Max Price</span>
-                      <p className="text-lg font-bold text-gray-900">
+                      <p className="text-lg font-bold text-white">
                         {formatPrice(position.priceRangeUpper)}
                       </p>
                     </div>
                   </div>
 
                   {/* Visual Bar */}
-                  <div className="relative h-8 bg-gray-200 rounded-full overflow-hidden">
+                  <div className="relative h-8 glass-card rounded-full overflow-hidden">
                     <div className="absolute inset-0 bg-gradient-to-r from-blue-400 via-blue-500 to-blue-600"></div>
                     {position.inRange && (
                       <div
-                        className="absolute top-0 bottom-0 w-1 bg-orange-500"
+                        className="absolute top-0 bottom-0 w-1 bg-orange-400"
                         style={{
                           left: `${Math.max(0, Math.min(100, ((position.currentPrice - position.priceRangeLower) / (position.priceRangeUpper - position.priceRangeLower)) * 100))}%`,
                         }}
                       >
                         <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-full mb-1">
-                          <TrendingUp className="w-4 h-4 text-orange-500" />
+                          <TrendingUp className="w-4 h-4 text-orange-400" />
                         </div>
                       </div>
                     )}
                   </div>
                 </div>
 
-                <div className="text-sm text-gray-600">
+                <div className="text-sm text-white/70">
                   Tick Range: {position.tickLower} to {position.tickUpper}
                 </div>
               </div>
 
               {/* Position Stats */}
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                <div className="bg-gray-50 rounded-lg p-4">
-                  <p className="text-sm text-gray-600 mb-1">Est. APR</p>
-                  <p className="text-xl font-semibold text-green-600">
+                <div className="glass-card rounded-lg p-4">
+                  <p className="text-sm text-white/70 mb-1">Est. APR</p>
+                  <p className="text-xl font-semibold text-green-300">
                     {position.estimatedAPR.toFixed(2)}%
                   </p>
                 </div>
-                <div className="bg-gray-50 rounded-lg p-4">
-                  <p className="text-sm text-gray-600 mb-1">Share of Pool</p>
-                  <p className="text-xl font-semibold text-gray-900">
+                <div className="glass-card rounded-lg p-4">
+                  <p className="text-sm text-white/70 mb-1">Share of Pool</p>
+                  <p className="text-xl font-semibold text-white">
                     {position.shareOfPool.toFixed(4)}%
                   </p>
                 </div>
-                <div className="bg-gray-50 rounded-lg p-4">
-                  <p className="text-sm text-gray-600 mb-1">Status</p>
-                  <p className={`text-xl font-semibold ${position.inRange ? 'text-green-600' : 'text-yellow-600'}`}>
+                <div className="glass-card rounded-lg p-4">
+                  <p className="text-sm text-white/70 mb-1">Status</p>
+                  <p className={`text-xl font-semibold ${position.inRange ? 'text-green-300' : 'text-yellow-300'}`}>
                     {position.inRange ? 'Active' : 'Inactive'}
                   </p>
                 </div>
@@ -334,17 +395,17 @@ export default function PositionDetailPage({ params }: { params: Promise<{ token
 
               {/* Token Amounts */}
               <div>
-                <h2 className="text-lg font-semibold text-gray-900 mb-3">Token Amounts</h2>
+                <h2 className="text-lg font-semibold text-white mb-3">Token Amounts</h2>
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="border border-gray-200 rounded-lg p-4">
-                    <p className="text-sm text-gray-600 mb-1">Token 0 Amount</p>
-                    <p className="text-2xl font-semibold text-gray-900">
+                  <div className="glass-card border border-white/10 rounded-lg p-4">
+                    <p className="text-sm text-white/70 mb-1">Token 0 Amount</p>
+                    <p className="text-2xl font-semibold text-white">
                       {formatBalance(position.amount0)}
                     </p>
                   </div>
-                  <div className="border border-gray-200 rounded-lg p-4">
-                    <p className="text-sm text-gray-600 mb-1">Token 1 Amount</p>
-                    <p className="text-2xl font-semibold text-gray-900">
+                  <div className="glass-card border border-white/10 rounded-lg p-4">
+                    <p className="text-sm text-white/70 mb-1">Token 1 Amount</p>
+                    <p className="text-2xl font-semibold text-white">
                       {formatBalance(position.amount1)}
                     </p>
                   </div>
@@ -353,18 +414,18 @@ export default function PositionDetailPage({ params }: { params: Promise<{ token
 
               {/* Uncollected Fees */}
               <div>
-                <h2 className="text-lg font-semibold text-gray-900 mb-3">Uncollected Fees</h2>
-                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                <h2 className="text-lg font-semibold text-white mb-3">Uncollected Fees</h2>
+                <div className="glass-card border border-green-500/30 rounded-lg p-4">
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <p className="text-sm text-green-700 mb-1">Token 0 Fees</p>
-                      <p className="text-xl font-semibold text-green-900">
+                      <p className="text-sm text-green-300 mb-1">Token 0 Fees</p>
+                      <p className="text-xl font-semibold text-green-300">
                         {formatBalance(position.tokensOwed0)}
                       </p>
                     </div>
                     <div>
-                      <p className="text-sm text-green-700 mb-1">Token 1 Fees</p>
-                      <p className="text-xl font-semibold text-green-900">
+                      <p className="text-sm text-green-300 mb-1">Token 1 Fees</p>
+                      <p className="text-xl font-semibold text-green-300">
                         {formatBalance(position.tokensOwed1)}
                       </p>
                     </div>
@@ -377,20 +438,20 @@ export default function PositionDetailPage({ params }: { params: Promise<{ token
                 <button
                   onClick={handleCollectFees}
                   disabled={actionLoading || (parseFloat(position.tokensOwed0) === 0 && parseFloat(position.tokensOwed1) === 0)}
-                  className="flex-1 px-4 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  className="glass-button-primary flex-1 px-4 py-3 font-medium rounded-xl disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {actionLoading ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : 'Collect Fees'}
                 </button>
                 <Link
                   href="/positions"
-                  className="flex-1 px-4 py-3 bg-green-600 text-white text-center font-medium rounded-lg hover:bg-green-700 transition-colors"
+                  className="glass-button-primary flex-1 px-4 py-3 text-center font-medium rounded-xl"
                 >
                   Increase Liquidity
                 </Link>
                 <button
                   onClick={handleRemoveLiquidity}
                   disabled={actionLoading}
-                  className="flex-1 px-4 py-3 bg-red-600 text-white font-medium rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  className="glass-button-primary flex-1 px-4 py-3 font-medium rounded-xl disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {actionLoading ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : 'Remove Liquidity'}
                 </button>

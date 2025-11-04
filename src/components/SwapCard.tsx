@@ -304,13 +304,13 @@ export function SwapCard() {
   const canSwap = isConnected && amountIn && amountOut && !isLoading && !isQuoteLoading
 
   return (
-    <div className="w-full max-w-lg mx-auto bg-white rounded-2xl shadow-xl border border-gray-200">
+    <div className="w-full max-w-lg mx-auto glass-card">
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-gray-200">
-        <h1 className="text-xl font-semibold">Swap</h1>
+      <div className="flex items-center justify-between p-4 border-b border-white/10">
+        <h1 className="text-xl font-semibold text-white">Swap</h1>
         <button
           onClick={() => setShowSettings(true)}
-          className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+          className="p-2 hover:bg-white/10 rounded-full transition-colors text-white"
         >
           <Settings className="w-5 h-5" />
         </button>
@@ -318,10 +318,10 @@ export function SwapCard() {
 
       <div className="p-4 space-y-4">
         {/* From Token */}
-        <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
+        <div className="bg-black/20 rounded-xl p-4 border border-white/10 glass-card">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-sm text-gray-600">From</span>
-            <span className="text-sm text-gray-500">
+            <span className="text-sm text-white/70">From</span>
+            <span className="text-sm text-white/60">
               Balance: {formatBalance(tokenInBalance)}
             </span>
           </div>
@@ -333,38 +333,38 @@ export function SwapCard() {
                 value={amountIn}
                 onChange={(e) => setAmountIn(e.target.value)}
                 placeholder="0.0"
-                className="w-full text-2xl font-medium bg-transparent border-none outline-none text-gray-900 placeholder:text-gray-400 mb-1"
+                className="w-full text-2xl font-medium bg-transparent border-none outline-none text-white placeholder:text-white/40 mb-1"
                 disabled={isLoading}
               />
               <div className="flex items-center gap-2">
-                <span className="text-sm text-gray-500">$0</span>
+                <span className="text-sm text-white/50">$0</span>
                 {/* Compact Percentage Buttons */}
                 <div className="flex items-center gap-1">
                   <button
                     onClick={() => handlePercentageClick(25)}
                     disabled={isLoading || !tokenInBalance || parseFloat(tokenInBalance) <= 0}
-                    className="px-2 py-0.5 text-xs font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="px-2 py-0.5 text-xs font-medium text-white/70 hover:text-white hover:bg-white/10 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed border border-white/10"
                   >
                     25%
                   </button>
                   <button
                     onClick={() => handlePercentageClick(50)}
                     disabled={isLoading || !tokenInBalance || parseFloat(tokenInBalance) <= 0}
-                    className="px-2 py-0.5 text-xs font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="px-2 py-0.5 text-xs font-medium text-white/70 hover:text-white hover:bg-white/10 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed border border-white/10"
                   >
                     50%
                   </button>
                   <button
                     onClick={() => handlePercentageClick(75)}
                     disabled={isLoading || !tokenInBalance || parseFloat(tokenInBalance) <= 0}
-                    className="px-2 py-0.5 text-xs font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="px-2 py-0.5 text-xs font-medium text-white/70 hover:text-white hover:bg-white/10 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed border border-white/10"
                   >
                     75%
                   </button>
                   <button
                     onClick={handleMaxClick}
                     disabled={isLoading || !tokenInBalance || parseFloat(tokenInBalance) <= 0}
-                    className="px-2 py-0.5 text-xs font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="px-2 py-0.5 text-xs font-medium text-white/70 hover:text-white hover:bg-white/10 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed border border-white/10"
                   >
                     MAX
                   </button>
@@ -388,18 +388,18 @@ export function SwapCard() {
         <div className="flex justify-center -my-2 relative z-10">
           <button
             onClick={handleSwapTokens}
-            className="p-2 bg-white border-2 border-gray-200 hover:border-gray-300 rounded-full transition-colors shadow-sm"
+            className="p-2 bg-black/30 backdrop-blur-md border-2 border-white/20 hover:border-white/30 rounded-full transition-colors shadow-lg glass-card"
             disabled={isLoading}
           >
-            <ArrowUpDown className="w-5 h-5 text-gray-600" />
+            <ArrowUpDown className="w-5 h-5 text-white" />
           </button>
         </div>
 
         {/* To Token */}
-        <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
+        <div className="bg-black/20 rounded-xl p-4 border border-white/10 glass-card">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-sm text-gray-600">To</span>
-            <span className="text-sm text-gray-500">
+            <span className="text-sm text-white/70">To</span>
+            <span className="text-sm text-white/60">
               Balance: {formatBalance(tokenOutBalance)}
             </span>
           </div>
@@ -408,16 +408,16 @@ export function SwapCard() {
             <div className="flex-1 min-w-0">
               {isQuoteLoading ? (
                 <div className="flex items-center gap-2 mb-1">
-                  <Loader2 className="w-4 h-4 animate-spin text-gray-400" />
-                  <span className="text-2xl font-medium text-gray-400">Calculating...</span>
+                  <Loader2 className="w-4 h-4 animate-spin text-white/50" />
+                  <span className="text-2xl font-medium text-white/50">Calculating...</span>
                 </div>
               ) : (
-                <div className="text-2xl font-medium text-gray-900 mb-1">
+                <div className="text-2xl font-medium text-white mb-1">
                   {amountOut ? formatBalance(amountOut) : '0.0'}
                 </div>
               )}
               <div>
-                <span className="text-sm text-gray-500">$0</span>
+                <span className="text-sm text-white/50">$0</span>
               </div>
             </div>
             {/* Compact Token Selector */}
@@ -438,28 +438,28 @@ export function SwapCard() {
         {poolStatus && (
           <div className="text-sm">
             {poolStatus === 'checking' && (
-              <div className="flex items-center gap-2 text-blue-600">
+              <div className="flex items-center gap-2 text-white/70 glass-card p-3 rounded-xl border border-white/10">
                 <Loader2 className="w-4 h-4 animate-spin" />
                 <span>Checking pool status...</span>
               </div>
             )}
             
             {poolStatus === 'exists' && (
-              <div className="flex items-center gap-2 text-green-600 bg-green-50 p-3 rounded-lg border border-green-200">
-                <CheckCircle className="w-5 h-5 text-green-500" />
+              <div className="flex items-center gap-2 text-green-400 bg-green-500/10 p-3 rounded-xl border border-green-500/20 glass-card">
+                <CheckCircle className="w-5 h-5 text-green-400" />
                 <div className="flex-1">
-                  <div className="font-medium">Pool has liquidity</div>
-                  <div className="text-xs text-green-600 mt-1">Ready to swap</div>
+                  <div className="font-medium text-white">Pool has liquidity</div>
+                  <div className="text-xs text-green-400 mt-1">Ready to swap</div>
                 </div>
               </div>
             )}
             
             {poolStatus === 'no-liquidity' && (
-              <div className="flex items-center gap-2 text-orange-600 bg-orange-50 p-3 rounded-lg border border-orange-200">
-                <AlertTriangle className="w-5 h-5 text-orange-500" />
+              <div className="flex items-center gap-2 text-orange-400 bg-orange-500/10 p-3 rounded-xl border border-orange-500/20 glass-card">
+                <AlertTriangle className="w-5 h-5 text-orange-400" />
                 <div className="flex-1">
-                  <div className="font-medium">Pool exists but has no liquidity</div>
-                  <div className="text-xs text-orange-600 mt-1">
+                  <div className="font-medium text-white">Pool exists but has no liquidity</div>
+                  <div className="text-xs text-orange-400 mt-1">
                     Add liquidity to the {tokenIn?.symbol} → {tokenOut?.symbol} pool first
                   </div>
                 </div>
@@ -467,11 +467,11 @@ export function SwapCard() {
             )}
             
             {poolStatus === 'not-exists' && (
-              <div className="flex items-center gap-2 text-red-600 bg-red-50 p-3 rounded-lg border border-red-200">
-                <XCircle className="w-5 h-5 text-red-500" />
+              <div className="flex items-center gap-2 text-red-400 bg-red-500/10 p-3 rounded-xl border border-red-500/20 glass-card">
+                <XCircle className="w-5 h-5 text-red-400" />
                 <div className="flex-1">
-                  <div className="font-medium">No liquidity pool found</div>
-                  <div className="text-xs text-red-600 mt-1">
+                  <div className="font-medium text-white">No liquidity pool found</div>
+                  <div className="text-xs text-red-400 mt-1">
                     Create a pool for {tokenIn?.symbol} → {tokenOut?.symbol} to enable swaps
                   </div>
                 </div>
@@ -482,11 +482,11 @@ export function SwapCard() {
 
         {/* Error Message */}
         {error && (
-          <div className="text-sm text-red-500 bg-red-50 border border-red-200 p-2 rounded flex items-center justify-between gap-2">
+          <div className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 p-2 rounded-lg flex items-center justify-between gap-2 glass-card">
             <span className="flex-1 truncate">{error}</span>
             <button
               onClick={() => setError('')}
-              className="text-red-600 hover:text-red-800 font-medium text-xs shrink-0"
+              className="text-red-400 hover:text-red-300 font-medium text-xs shrink-0"
               title="Dismiss error"
             >
               ✕
@@ -500,7 +500,7 @@ export function SwapCard() {
           {amountIn && amountOut && tokenIn && tokenOut && (
             <button
               onClick={() => setShowDetails(true)}
-              className="w-full flex items-center justify-center gap-2 py-2 text-sm text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors"
+              className="w-full flex items-center justify-center gap-2 py-2 text-sm text-white/70 hover:text-white hover:bg-white/5 rounded-lg transition-colors glass-button"
             >
               <Info className="w-4 h-4" />
               <span>View Swap Details</span>
@@ -511,7 +511,7 @@ export function SwapCard() {
           <button
             onClick={handleSwap}
             disabled={!canSwap}
-            className="w-full py-3 px-4 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="w-full py-3 px-4 glass-button-primary disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isLoading ? (
               <div className="flex items-center justify-center gap-2">
@@ -546,7 +546,7 @@ export function SwapCard() {
               })
               window.open(`/liquidity?${params.toString()}`, '_blank')
             }}
-            className="w-full py-3 px-4 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors flex items-center justify-center gap-2"
+            className="w-full py-3 px-4 bg-green-500/20 text-green-400 rounded-xl font-medium hover:bg-green-500/30 transition-colors flex items-center justify-center gap-2 border border-green-500/30 glass-card"
           >
             <Plus className="w-4 h-4" />
             Create {tokenIn?.symbol} → {tokenOut?.symbol} Pool

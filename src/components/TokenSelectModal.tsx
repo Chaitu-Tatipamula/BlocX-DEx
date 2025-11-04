@@ -239,31 +239,31 @@ export function TokenSelectModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       {/* Backdrop */}
       <div
-        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+        className="glass-modal-backdrop absolute inset-0"
         onClick={onClose}
       />
 
       {/* Modal */}
-      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] flex flex-col overflow-hidden">
+      <div className="relative glass-modal w-full max-w-md max-h-[90vh] flex flex-col overflow-hidden text-white">
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-200">
-          <h2 className="text-xl font-semibold">Select a token</h2>
+        <div className="flex items-center justify-between p-4 border-b border-white/10">
+          <h2 className="text-xl font-semibold text-white">Select a token</h2>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+            className="p-2 hover:bg-white/10 rounded-full transition-colors text-white"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Tabs */}
-        <div className="flex border-b border-gray-200">
+        <div className="flex border-b border-white/10">
           <button
             onClick={() => setActiveTab('select')}
             className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
               activeTab === 'select'
-                ? 'text-blue-600 border-b-2 border-blue-600'
-                : 'text-gray-500 hover:text-gray-700'
+                ? 'text-white border-b-2 border-white/30 bg-white/5'
+                : 'text-white/60 hover:text-white hover:bg-white/5'
             }`}
           >
             Select
@@ -272,8 +272,8 @@ export function TokenSelectModal({
             onClick={() => setActiveTab('import')}
             className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
               activeTab === 'import'
-                ? 'text-blue-600 border-b-2 border-blue-600'
-                : 'text-gray-500 hover:text-gray-700'
+                ? 'text-white border-b-2 border-white/30 bg-white/5'
+                : 'text-white/60 hover:text-white hover:bg-white/5'
             }`}
           >
             Import
@@ -283,15 +283,15 @@ export function TokenSelectModal({
         {activeTab === 'select' ? (
           <div className="flex-1 overflow-hidden flex flex-col">
             {/* Search */}
-            <div className="p-4 border-b border-gray-200">
+            <div className="p-4 border-b border-white/10">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-white/50" />
                 <input
                   type="text"
                   placeholder="Search tokens"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-3 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="glass-input w-full pl-10 pr-3 py-2.5 text-white"
                   autoFocus
                 />
               </div>
@@ -299,10 +299,10 @@ export function TokenSelectModal({
 
             {/* Popular Tokens */}
             {!searchTerm && (
-              <div className="p-4 border-b border-gray-200">
+              <div className="p-4 border-b border-white/10">
                 <div className="flex items-center gap-2 mb-3">
-                  <TrendingUp className="w-4 h-4 text-gray-500" />
-                  <span className="text-sm font-medium text-gray-700">Popular tokens</span>
+                  <TrendingUp className="w-4 h-4 text-white/60" />
+                  <span className="text-sm font-medium text-white/80">Popular tokens</span>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {popularTokens
@@ -312,10 +312,10 @@ export function TokenSelectModal({
                       <button
                         key={token.address}
                         onClick={() => handleTokenSelect(token)}
-                        className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 rounded-full transition-colors"
+                        className="flex items-center gap-2 px-3 py-1.5 glass-button rounded-full text-sm"
                       >
-                        <div className="w-5 h-5 bg-gray-300 rounded-full flex items-center justify-center">
-                          <span className="text-xs font-medium">{token.symbol.charAt(0)}</span>
+                        <div className="w-5 h-5 bg-white/20 rounded-full flex items-center justify-center">
+                          <span className="text-xs font-medium text-white">{token.symbol.charAt(0)}</span>
                         </div>
                         <span className="text-sm font-medium">{token.symbol}</span>
                       </button>
@@ -328,10 +328,10 @@ export function TokenSelectModal({
             <div className="flex-1 overflow-y-auto">
               {/* Your tokens */}
               {!searchTerm && userTokens.length > 0 && (
-                <div className="p-4 border-b border-gray-200">
+                <div className="p-4 border-b border-white/10">
                   <div className="flex items-center gap-2 mb-3">
-                    <Wallet className="w-4 h-4 text-gray-500" />
-                    <span className="text-sm font-medium text-gray-700">Your tokens</span>
+                    <Wallet className="w-4 h-4 text-white/60" />
+                    <span className="text-sm font-medium text-white/80">Your tokens</span>
                   </div>
                   <div className="space-y-1">
                     {userTokens
@@ -353,13 +353,13 @@ export function TokenSelectModal({
               {/* All tokens */}
               <div className="p-4">
                 <div className="mb-3">
-                  <span className="text-sm font-medium text-gray-700">
+                  <span className="text-sm font-medium text-white/80">
                     {searchTerm ? 'Search results' : 'Tokens'}
                   </span>
                 </div>
                 <div className="space-y-1">
                   {filteredTokens.length === 0 ? (
-                    <div className="text-center py-8 text-gray-500">
+                    <div className="text-center py-8 text-white/50">
                       <p>No tokens found</p>
                     </div>
                   ) : (
@@ -381,15 +381,15 @@ export function TokenSelectModal({
         ) : (
           <div className="flex-1 overflow-y-auto p-4">
             <div className="mb-4">
-              <h3 className="text-sm font-medium text-gray-700 mb-2">Import token</h3>
-              <p className="text-xs text-gray-500 mb-4">
+              <h3 className="text-sm font-medium text-white/90 mb-2">Import token</h3>
+              <p className="text-xs text-white/60 mb-4">
                 Import a token by entering its contract address on BlockX network
               </p>
             </div>
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-white/80 mb-2">
                   Token contract address
                 </label>
                 <input
@@ -400,10 +400,10 @@ export function TokenSelectModal({
                     setImportAddress(e.target.value)
                     setImportError('')
                   }}
-                  className="w-full px-3 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="glass-input w-full px-3 py-2.5 text-white"
                 />
                 {importError && (
-                  <div className="mt-2 flex items-center gap-2 text-sm text-red-600">
+                  <div className="mt-2 flex items-center gap-2 text-sm text-red-400">
                     <AlertCircle className="w-4 h-4" />
                     <span>{importError}</span>
                   </div>
@@ -413,7 +413,7 @@ export function TokenSelectModal({
               <button
                 onClick={importTokenByAddress}
                 disabled={!importAddress || importing}
-                className="w-full py-2.5 px-4 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+                className="glass-button-primary w-full py-2.5 px-4 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {importing ? (
                   <>
@@ -449,36 +449,36 @@ function TokenRow({ token, balance, isSelected, onSelect, isImported }: TokenRow
   return (
     <button
       onClick={onSelect}
-      className="w-full p-3 hover:bg-gray-50 rounded-lg transition-colors flex items-center justify-between group"
+      className="w-full p-3 hover:bg-white/5 rounded-xl transition-colors flex items-center justify-between group glass-card border border-white/5"
     >
       <div className="flex items-center gap-3">
-        <div className="w-10 h-10 bg-linear-to-br from-blue-100 to-indigo-100 rounded-full flex items-center justify-center">
+        <div className="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center border border-white/20">
           {token.logoURI ? (
             <img src={token.logoURI} alt={token.symbol} className="w-full h-full rounded-full" />
           ) : (
-            <span className="text-sm font-medium text-blue-700">{token.symbol.charAt(0)}</span>
+            <span className="text-sm font-medium text-white">{token.symbol.charAt(0)}</span>
           )}
         </div>
         <div className="text-left">
           <div className="flex items-center gap-2">
-            <span className="font-medium text-gray-900">{token.symbol}</span>
+            <span className="font-medium text-white">{token.symbol}</span>
             {isImported && (
-              <span className="text-xs px-1.5 py-0.5 bg-yellow-100 text-yellow-800 rounded">
+              <span className="text-xs px-1.5 py-0.5 bg-yellow-500/20 text-yellow-400 rounded-lg border border-yellow-500/30">
                 Imported
               </span>
             )}
           </div>
-          <div className="text-sm text-gray-500">{token.name}</div>
+          <div className="text-sm text-white/60">{token.name}</div>
         </div>
       </div>
       <div className="flex items-center gap-3">
         {hasBalance && (
           <div className="text-right">
-            <div className="text-sm font-medium text-gray-900">{formatBalance(balance)}</div>
+            <div className="text-sm font-medium text-white">{formatBalance(balance)}</div>
           </div>
         )}
         {isSelected && (
-          <CheckCircle2 className="w-5 h-5 text-blue-600" />
+          <CheckCircle2 className="w-5 h-5 text-white" />
         )}
       </div>
     </button>

@@ -136,23 +136,23 @@ export function PositionsCard() {
 
   if (!isConnected) {
     return (
-      <div className="w-full max-w-md mx-auto bg-white rounded-2xl shadow-xl border border-gray-200 p-6">
-        <h2 className="text-xl font-semibold mb-4">Your Liquidity Positions</h2>
-        <p className="text-gray-500 text-center">Connect your wallet to view positions</p>
+      <div className="w-full max-w-md mx-auto glass-card p-6">
+        <h2 className="text-xl font-semibold mb-4 text-white">Your Liquidity Positions</h2>
+        <p className="text-white/70 text-center">Connect your wallet to view positions</p>
       </div>
     )
   }
 
   return (
-    <div className="w-full max-w-4xl mx-auto bg-white rounded-2xl shadow-xl border border-gray-200">
+    <div className="w-full max-w-4xl mx-auto glass-card">
       {/* Header */}
-      <div className="p-4 border-b border-gray-200">
+      <div className="p-4 border-b border-white/10">
         <div className="flex items-center justify-between">
-          <h2 className="text-xl font-semibold">Your Liquidity Positions</h2>
+          <h2 className="text-xl font-semibold text-white">Your Liquidity Positions</h2>
           <button
             onClick={fetchPositions}
             disabled={isLoading}
-            className="p-2 hover:bg-gray-100 rounded-full disabled:opacity-50"
+            className="p-2 hover:bg-white/10 rounded-full disabled:opacity-50 text-white transition-colors"
           >
             {isLoading ? (
               <Loader2 className="w-5 h-5 animate-spin" />
@@ -167,13 +167,13 @@ export function PositionsCard() {
       <div className="p-4">
         {isLoading ? (
           <div className="flex items-center justify-center py-8">
-            <Loader2 className="w-6 h-6 animate-spin" />
-            <span className="ml-2">Loading positions...</span>
+            <Loader2 className="w-6 h-6 animate-spin text-white" />
+            <span className="ml-2 text-white">Loading positions...</span>
           </div>
         ) : positions.length === 0 ? (
           <div className="text-center py-8">
-            <p className="text-gray-500 mb-4">No liquidity positions found</p>
-            <p className="text-sm text-gray-400">
+            <p className="text-white/70 mb-4">No liquidity positions found</p>
+            <p className="text-sm text-white/50">
               Add liquidity to token pairs to start earning fees
             </p>
           </div>
@@ -182,33 +182,33 @@ export function PositionsCard() {
             {positions.map((position) => (
               <div
                 key={position.tokenId}
-                className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors"
+                className="border border-white/10 rounded-xl p-4 hover:bg-white/5 transition-colors glass-card"
               >
                 <div className="flex items-center justify-between">
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-2">
-                      <span className="font-medium">
+                      <span className="font-medium text-white">
                         {position.token0} / {position.token1}
                       </span>
-                      <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">
+                      <span className="text-xs bg-white/10 text-white px-2 py-1 rounded-lg border border-white/20">
                         {position.fee / 10000}%
                       </span>
                     </div>
-                    <div className="text-sm text-gray-500">
+                    <div className="text-sm text-white/60">
                       Range: {position.tickLower} to {position.tickUpper}
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => setIncreasingPosition(increasingPosition === position.tokenId ? null : position.tokenId)}
-                      className="p-2 text-blue-600 hover:bg-blue-50 rounded-full transition-colors"
+                      className="p-2 text-white hover:bg-white/10 rounded-full transition-colors border border-white/20"
                       title="Increase liquidity"
                     >
                       <span className="text-sm font-medium">+</span>
                     </button>
                     <button
                       onClick={() => handleRemoveLiquidity(position.tokenId)}
-                      className="p-2 text-red-600 hover:bg-red-50 rounded-full transition-colors"
+                      className="p-2 text-white hover:bg-white/10 rounded-full transition-colors border border-white/20"
                       title="Remove liquidity"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -218,11 +218,11 @@ export function PositionsCard() {
                 
                 {/* Increase Liquidity Form */}
                 {increasingPosition === position.tokenId && (
-                  <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
-                    <h4 className="font-medium text-blue-900 mb-3">Increase Liquidity</h4>
+                  <div className="mt-4 p-4 bg-white/5 rounded-xl border border-white/10 glass-card">
+                    <h4 className="font-medium text-white mb-3">Increase Liquidity</h4>
                     <div className="space-y-3">
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                        <label className="block text-sm font-medium text-white/70 mb-1">
                           Amount for {position.token0}
                         </label>
                         <input
@@ -230,11 +230,11 @@ export function PositionsCard() {
                           placeholder="0.0"
                           value={increaseAmount0}
                           onChange={(e) => setIncreaseAmount0(e.target.value)}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className="glass-input w-full"
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                        <label className="block text-sm font-medium text-white/70 mb-1">
                           Amount for {position.token1}
                         </label>
                         <input
@@ -242,14 +242,14 @@ export function PositionsCard() {
                           placeholder="0.0"
                           value={increaseAmount1}
                           onChange={(e) => setIncreaseAmount1(e.target.value)}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className="glass-input w-full"
                         />
                       </div>
                       <div className="flex gap-2">
                         <button
                           onClick={() => handleIncreaseLiquidity(position.tokenId)}
                           disabled={increasingPosition === position.tokenId && (!increaseAmount0 || !increaseAmount1)}
-                          className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="flex-1 glass-button-primary disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           {increasingPosition === position.tokenId ? 'Increasing...' : 'Increase Liquidity'}
                         </button>
@@ -259,7 +259,7 @@ export function PositionsCard() {
                             setIncreaseAmount0('')
                             setIncreaseAmount1('')
                           }}
-                          className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50"
+                          className="px-4 py-2 glass-button"
                         >
                           Cancel
                         </button>
@@ -274,7 +274,7 @@ export function PositionsCard() {
 
         {/* Error Message */}
         {error && (
-              <div className="text-sm text-red-500 bg-red-50 border border-red-200 p-2 rounded truncate">
+              <div className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 p-2 rounded-lg truncate glass-card">
             {error}
           </div>
         )}

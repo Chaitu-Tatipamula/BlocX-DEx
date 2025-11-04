@@ -41,19 +41,19 @@ export function SettingsModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       {/* Backdrop */}
       <div
-        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+        className="glass-modal-backdrop absolute inset-0"
         onClick={onClose}
       />
       {/* Modal */}
-      <div className="relative bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[90vh] flex flex-col overflow-hidden">
-        <div className="flex items-center justify-between p-4 border-b border-gray-200">
+      <div className="relative glass-modal max-w-md w-full max-h-[90vh] flex flex-col overflow-hidden text-white">
+        <div className="flex items-center justify-between p-4 border-b border-white/10">
           <div className="flex items-center gap-2">
-            <Settings className="w-5 h-5" />
-            <h2 className="text-lg font-semibold">Settings</h2>
+            <Settings className="w-5 h-5 text-white" />
+            <h2 className="text-lg font-semibold text-white">Settings</h2>
           </div>
           <button
             onClick={onClose}
-            className="p-1 hover:bg-gray-100 rounded-full"
+            className="p-1 hover:bg-white/10 rounded-full text-white transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
@@ -62,7 +62,7 @@ export function SettingsModal({
         <div className="p-4 space-y-6">
           {/* Slippage Tolerance */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-white/80 mb-2">
               Slippage Tolerance
             </label>
             <div className="grid grid-cols-3 gap-2 mb-3">
@@ -70,10 +70,10 @@ export function SettingsModal({
                 <button
                   key={value}
                   onClick={() => handleSlippageChange(value)}
-                  className={`px-3 py-2 text-sm rounded-md border ${
+                  className={`px-3 py-2 text-sm rounded-xl border transition-colors ${
                     slippage === value
-                      ? 'border-blue-500 bg-blue-50 text-blue-700'
-                      : 'border-gray-200 hover:border-gray-300'
+                      ? 'glass-button-primary border-white/30 text-black'
+                      : 'glass-button border-white/15 text-white'
                   }`}
                 >
                   {value}%
@@ -86,17 +86,17 @@ export function SettingsModal({
                 value={customSlippage}
                 onChange={(e) => handleCustomSlippageChange(e.target.value)}
                 placeholder="Custom"
-                className="w-full px-3 py-2 border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="glass-input w-full px-3 py-2 text-white pr-10"
                 step="0.1"
                 min="0"
                 max="50"
               />
-              <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500">
+              <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-white/60">
                 %
               </span>
             </div>
             {slippage > 5 && (
-              <p className="text-sm text-red-500 mt-1">
+              <p className="text-sm text-red-400 mt-1">
                 Warning: High slippage tolerance
               </p>
             )}
@@ -104,7 +104,7 @@ export function SettingsModal({
 
           {/* Transaction Deadline */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-white/80 mb-2">
               Transaction Deadline
             </label>
             <div className="flex items-center gap-2">
@@ -112,22 +112,22 @@ export function SettingsModal({
                 type="number"
                 value={deadline}
                 onChange={(e) => onDeadlineChange(parseInt(e.target.value) || 20)}
-                className="flex-1 px-3 py-2 border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="glass-input flex-1 px-3 py-2 text-white"
                 min="1"
                 max="4320"
               />
-              <span className="text-gray-500">minutes</span>
+              <span className="text-white/60">minutes</span>
             </div>
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-xs text-white/50 mt-1">
               Your transaction will revert if it is pending for more than this long.
             </p>
           </div>
         </div>
 
-        <div className="p-4 border-t border-gray-200">
+        <div className="p-4 border-t border-white/10">
           <button
             onClick={onClose}
-            className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+            className="glass-button-primary w-full px-4 py-2"
           >
             Save Settings
           </button>

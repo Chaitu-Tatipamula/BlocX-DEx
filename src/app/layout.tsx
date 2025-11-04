@@ -4,6 +4,7 @@ import './globals.css'
 import { Providers } from './providers'
 import { Navigation } from '@/components/Navigation'
 import Footer from "../components/Footer";
+import BeamsBackground from '@/components/BeamsBackground';
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -23,12 +24,12 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={inter.className}>
+        <BeamsBackground />
         <Providers>
           <Navigation />
           {children}
           <Footer />
         </Providers>
-
       </body>
     </html>
   )

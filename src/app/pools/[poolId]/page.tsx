@@ -60,13 +60,13 @@ export default function PoolDetailPage({ params }: { params: Promise<{ poolId: s
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-4xl mx-auto">
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div className="glass-card p-6">
           {/* Back Button */}
           <Link
             href="/pools"
-            className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-6"
+            className="inline-flex items-center gap-2 text-white/70 hover:text-white mb-6 transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
             Back to Pools
@@ -75,20 +75,20 @@ export default function PoolDetailPage({ params }: { params: Promise<{ poolId: s
           {/* Loading State */}
           {isLoading && (
             <div className="text-center py-12">
-              <Loader2 className="w-8 h-8 animate-spin text-blue-600 mx-auto mb-2" />
-              <p className="text-gray-600">Loading pool details...</p>
+              <Loader2 className="w-8 h-8 animate-spin text-white mx-auto mb-2" />
+              <p className="text-white/70">Loading pool details...</p>
             </div>
           )}
 
           {/* Error State */}
           {error && !isLoading && (
             <div className="text-center py-12">
-              <div className="text-red-500 bg-red-50 p-4 rounded-lg inline-block mb-4">
+              <div className="text-red-400 glass-card border border-red-500/30 p-4 rounded-lg inline-block mb-4">
                 {error}
               </div>
               <Link
                 href="/pools"
-                className="text-blue-600 hover:text-blue-700 font-medium"
+                className="text-white hover:text-white/80 font-medium"
               >
                 View all pools →
               </Link>
@@ -100,17 +100,62 @@ export default function PoolDetailPage({ params }: { params: Promise<{ poolId: s
             <div className="space-y-6">
               {/* Header */}
               <div className="flex items-center justify-between">
-                <div>
-                  <h1 className="text-2xl font-semibold text-gray-900 mb-1">
-                    {pool.token0.symbol} / {pool.token1.symbol}
-                  </h1>
-                  <span className="text-sm text-gray-600">
-                    Fee Tier: {getFeeTierLabel(pool.fee)}
-                  </span>
+                <div className="flex items-center gap-3">
+                  {/* Token Logos */}
+                  <div className="flex -space-x-2">
+                    <div className="relative w-10 h-10">
+                      {pool.token0.logoURI ? (
+                        <div className="w-10 h-10 rounded-full bg-white p-0.5 border-2 border-white/20">
+                          <img
+                            src={pool.token0.logoURI}
+                            alt={pool.token0.symbol}
+                            className="w-full h-full rounded-full object-cover"
+                            onError={(e) => {
+                              const target = e.target as HTMLImageElement
+                              target.style.display = 'none'
+                              const fallback = target.parentElement?.nextElementSibling as HTMLElement
+                              if (fallback) fallback.style.display = 'flex'
+                            }}
+                          />
+                        </div>
+                      ) : null}
+                      <div className={`w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 border-2 border-white/20 flex items-center justify-center text-white text-sm font-bold ${pool.token0.logoURI ? 'absolute inset-0 hidden' : ''}`}>
+                        {pool.token0.symbol.substring(0, 1)}
+                      </div>
+                    </div>
+                    <div className="relative w-10 h-10">
+                      {pool.token1.logoURI ? (
+                        <div className="w-10 h-10 rounded-full bg-white p-0.5 border-2 border-white/20">
+                          <img
+                            src={pool.token1.logoURI}
+                            alt={pool.token1.symbol}
+                            className="w-full h-full rounded-full object-cover"
+                            onError={(e) => {
+                              const target = e.target as HTMLImageElement
+                              target.style.display = 'none'
+                              const fallback = target.parentElement?.nextElementSibling as HTMLElement
+                              if (fallback) fallback.style.display = 'flex'
+                            }}
+                          />
+                        </div>
+                      ) : null}
+                      <div className={`w-10 h-10 rounded-full bg-gradient-to-br from-purple-400 to-purple-600 border-2 border-white/20 flex items-center justify-center text-white text-sm font-bold ${pool.token1.logoURI ? 'absolute inset-0 hidden' : ''}`}>
+                        {pool.token1.symbol.substring(0, 1)}
+                      </div>
+                    </div>
+                  </div>
+                  <div>
+                    <h1 className="text-2xl font-semibold text-white mb-1">
+                      {pool.token0.symbol} / {pool.token1.symbol}
+                    </h1>
+                    <span className="text-sm text-white/70">
+                      Fee Tier: {getFeeTierLabel(pool.fee)}
+                    </span>
+                  </div>
                 </div>
                 <Link
                   href={`/liquidity?token0=${pool.token0.address}&token1=${pool.token1.address}&fee=${pool.fee}`}
-                  className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 transition-colors"
+                  className="glass-button-primary flex items-center gap-2 px-4 py-2"
                 >
                   <Plus className="w-4 h-4" />
                   Add Liquidity
@@ -119,25 +164,25 @@ export default function PoolDetailPage({ params }: { params: Promise<{ poolId: s
 
               {/* Pool Stats */}
               <div className="grid grid-cols-2 gap-4">
-                <div className="bg-gray-50 rounded-lg p-4">
-                  <p className="text-sm text-gray-600 mb-1">Current Price</p>
-                  <p className="text-2xl font-semibold text-gray-900">
+                <div className="glass-card rounded-lg p-4 border border-white/10">
+                  <p className="text-sm text-white/70 mb-1">Current Price</p>
+                  <p className="text-2xl font-semibold text-white">
                     {formatPrice(pool.currentPrice)}
                   </p>
                 </div>
-                <div className="bg-gray-50 rounded-lg p-4">
-                  <p className="text-sm text-gray-600 mb-1">Total Liquidity</p>
-                  <p className="text-2xl font-semibold text-gray-900">
+                <div className="glass-card rounded-lg p-4 border border-white/10">
+                  <p className="text-sm text-white/70 mb-1">Total Liquidity</p>
+                  <p className="text-2xl font-semibold text-white">
                     {formatBalance(pool.liquidity)}
                   </p>
                 </div>
-                <div className="bg-gray-50 rounded-lg p-4">
-                  <p className="text-sm text-gray-600 mb-1">Current Tick</p>
-                  <p className="text-xl font-mono text-gray-900">{pool.currentTick}</p>
+                <div className="glass-card rounded-lg p-4 border border-white/10">
+                  <p className="text-sm text-white/70 mb-1">Current Tick</p>
+                  <p className="text-xl font-mono text-white">{pool.currentTick}</p>
                 </div>
-                <div className="bg-gray-50 rounded-lg p-4">
-                  <p className="text-sm text-gray-600 mb-1">Pool Address</p>
-                  <p className="text-xs font-mono text-gray-700 truncate">
+                <div className="glass-card rounded-lg p-4 border border-white/10">
+                  <p className="text-sm text-white/70 mb-1">Pool Address</p>
+                  <p className="text-xs font-mono text-white/70 truncate">
                     {pool.address}
                   </p>
                 </div>
@@ -146,17 +191,17 @@ export default function PoolDetailPage({ params }: { params: Promise<{ poolId: s
               {/* User Positions in this Pool */}
               {isConnected && (
                 <div>
-                  <h2 className="text-lg font-semibold text-gray-900 mb-3">
+                  <h2 className="text-lg font-semibold text-white mb-3">
                     Your Positions
                   </h2>
                   {userPositions.length === 0 ? (
-                    <div className="text-center py-8 bg-gray-50 rounded-lg">
-                      <p className="text-gray-600 mb-2">
+                    <div className="text-center py-8 glass-card rounded-lg border border-white/10">
+                      <p className="text-white/70 mb-2">
                         You don't have any positions in this pool yet
                       </p>
                       <Link
                         href={`/liquidity?token0=${pool.token0.address}&token1=${pool.token1.address}&fee=${pool.fee}`}
-                        className="text-blue-600 hover:text-blue-700 font-medium"
+                        className="text-white hover:text-white/80 font-medium"
                       >
                         Create a position →
                       </Link>
@@ -178,17 +223,17 @@ export default function PoolDetailPage({ params }: { params: Promise<{ poolId: s
                           <Link
                             key={position.tokenId}
                             href={`/positions/${position.tokenId}`}
-                            className="block border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
+                            className="block glass-card border border-white/10 rounded-lg p-4 hover:border-white/20 transition-all"
                           >
                             <div className="flex items-center justify-between mb-2">
-                              <span className="font-medium text-gray-900">
+                              <span className="font-medium text-white">
                                 Position #{position.tokenId}
                               </span>
                               <span
-                                className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                className={`px-2 py-1 rounded-full text-xs font-medium glass-card border ${
                                   inRange
-                                    ? 'bg-green-100 text-green-800'
-                                    : 'bg-yellow-100 text-yellow-800'
+                                    ? 'border-green-500/30 text-green-400'
+                                    : 'border-yellow-500/30 text-yellow-400'
                                 }`}
                               >
                                 {inRange ? 'In Range' : 'Out of Range'}
@@ -196,14 +241,14 @@ export default function PoolDetailPage({ params }: { params: Promise<{ poolId: s
                             </div>
                             <div className="grid grid-cols-2 gap-2 text-sm">
                               <div>
-                                <span className="text-gray-600">Min Price:</span>
-                                <span className="ml-1 font-medium">
+                                <span className="text-white/70">Min Price:</span>
+                                <span className="ml-1 font-medium text-white">
                                   {formatPrice(priceRange.min)}
                                 </span>
                               </div>
                               <div>
-                                <span className="text-gray-600">Max Price:</span>
-                                <span className="ml-1 font-medium">
+                                <span className="text-white/70">Max Price:</span>
+                                <span className="ml-1 font-medium text-white">
                                   {formatPrice(priceRange.max)}
                                 </span>
                               </div>

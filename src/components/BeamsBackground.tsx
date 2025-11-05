@@ -45,6 +45,8 @@ export default function BeamsBackground() {
         scale={0.2}
         rotation={30}
       />
+      {/* darkening overlay to improve text contrast */}
+      <div className="absolute inset-0 bg-black/15" />
     </div>
   )
 }

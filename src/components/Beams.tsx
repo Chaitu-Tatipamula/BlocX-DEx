@@ -271,7 +271,7 @@ const Beams: FC<BeamsProps> = ({
           roughness: 0.3,
           metalness: 0.3,
           uSpeed: { shared: true, mixed: true, linked: true, value: speed },
-          envMapIntensity: 10,
+          envMapIntensity: 1.5,
           uNoiseIntensity: noiseIntensity,
           uScale: scale
         }
@@ -283,10 +283,11 @@ const Beams: FC<BeamsProps> = ({
     <CanvasWrapper>
       <group rotation={[0, 0, degToRad(rotation)]}>
         <PlaneNoise ref={meshRef} material={beamMaterial} count={beamNumber} width={beamWidth} height={beamHeight} />
-        <DirLight color={lightColor} position={[0, 3, 10]} intensity={5} />
+        <DirLight color={lightColor} position={[0, 3, 10]} intensity={1.5} />
       </group>
-      <ambientLight intensity={0.5} />
+      <ambientLight intensity={0.15} />
       <color attach="background" args={['#000000']} />
+      <fog attach="fog" args={[ '#000000', 8, 60 ]} />
       <PerspectiveCamera makeDefault position={[0, 0, 20]} fov={30} />
     </CanvasWrapper>
   );

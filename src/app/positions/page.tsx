@@ -11,6 +11,7 @@ import { PositionInfoCard } from '@/components/PositionInfoCard'
 import { IncreaseLiquidityModal } from '@/components/IncreaseLiquidityModal'
 import { isInRange, getPriceRangeDisplay, getTokenAmounts, estimateAPR, calculateShareOfPool, formatPrice } from '@/lib/positionAnalysis'
 import { formatBalance } from '@/lib/utils'
+import { formatUnits } from 'viem'
 import { Loader2, Plus } from 'lucide-react'
 import { tokenList } from '@/config/tokens'
 import { useTx } from '@/context/tx'
@@ -91,21 +92,21 @@ export default function PositionsPage() {
             const priceRange = getPriceRangeDisplay(position.tickLower, position.tickUpper)
             const amounts = getTokenAmounts(
               position.liquidity,
-              pool.currentTick,
+              pool.sqrtPriceX96,
               position.tickLower,
               position.tickUpper
             )
             
-            // Format amounts with correct token decimals for display
-            const amount0Num = parseFloat(amounts.amount0)
-            const amount1Num = parseFloat(amounts.amount1)
+            // Amounts are now in wei (raw units), convert to human-readable using formatUnits
+            const amount0Wei = BigInt(amounts.amount0)
+            const amount1Wei = BigInt(amounts.amount1)
             
-            // Divide by 10^decimals to convert from calculated units to human-readable
-            const formattedAmount0 = amount0Num > 0 
-              ? formatBalance((amount0Num / Math.pow(10, pool.token0.decimals)).toString(), pool.token0.decimals)
+            // Convert from wei to human-readable format
+            const formattedAmount0 = amount0Wei > BigInt(0)
+              ? formatBalance(formatUnits(amount0Wei, pool.token0.decimals), pool.token0.decimals)
               : '0'
-            const formattedAmount1 = amount1Num > 0
-              ? formatBalance((amount1Num / Math.pow(10, pool.token1.decimals)).toString(), pool.token1.decimals)
+            const formattedAmount1 = amount1Wei > BigInt(0)
+              ? formatBalance(formatUnits(amount1Wei, pool.token1.decimals), pool.token1.decimals)
               : '0'
             
             const apr = estimateAPR(position, position.fee, '0') // No volume data available
@@ -398,13 +399,8 @@ export default function PositionsPage() {
     setLoadingPositions(prev => ({ ...prev, [tokenId]: { type: 'burn' } }))
 
     try {
-      const txHash = await positionService.removeLiquidity(
+      const txHash = await positionService.burnPosition(
         tokenId,
-        liquidity,
-        '0',
-        '0',
-        20,
-        userAddress
       )
       
       addTx({ hash: txHash, title: 'Position Burned' })

@@ -1,5 +1,5 @@
 import { Position, PositionAmounts } from '@/types/position'
-import { tickToPrice } from './tickMath'
+import { tickToPrice, getSqrtRatioAtTick } from './tickMath'
 
 /**
  * Check if position is in range (earning fees)
@@ -34,16 +34,16 @@ export function getPriceRangeDisplay(
 
 /**
  * Calculate token amounts for a position
- * Based on Uniswap V3 math for concentrated liquidity
- * @param liquidity Position liquidity
- * @param currentTick Current pool tick
+ * Based on Uniswap V3 math for concentrated liquidity using Q96 format
+ * @param liquidity Position liquidity (uint128)
+ * @param sqrtPriceX96 Current pool sqrt price in Q96 format
  * @param tickLower Position lower tick
  * @param tickUpper Position upper tick
- * @returns Token amounts
+ * @returns Token amounts in wei (raw units)
  */
 export function getTokenAmounts(
   liquidity: string,
-  currentTick: number,
+  sqrtPriceX96: bigint,
   tickLower: number,
   tickUpper: number
 ): PositionAmounts {
@@ -53,33 +53,42 @@ export function getTokenAmounts(
     return { amount0: '0', amount1: '0' }
   }
 
-  // Use raw liquidity value directly - don't divide by 1e18
-  // The formulas work with raw liquidity, and the scale matches what calculateLiquidityAmounts produces
-  const liquidityNum = Number(liquidityBigInt)
-
-  // Get sqrt prices (normalized)
-  const sqrtPriceCurrent = Math.sqrt(Math.pow(1.0001, currentTick))
-  const sqrtPriceLower = Math.sqrt(Math.pow(1.0001, tickLower))
-  const sqrtPriceUpper = Math.sqrt(Math.pow(1.0001, tickUpper))
-
-  let amount0 = 0
-  let amount1 = 0
-
-  if (currentTick < tickLower) {
-    // Position is entirely in token0
-    amount0 = liquidityNum * (1 / sqrtPriceLower - 1 / sqrtPriceUpper)
-  } else if (currentTick >= tickUpper) {
-    // Position is entirely in token1
-    amount1 = liquidityNum * (sqrtPriceUpper - sqrtPriceLower)
+  // Q96 constant
+  const Q96 = BigInt(2) ** BigInt(96)
+  
+  // Get sqrt prices at ticks in Q96 format
+  const sqrtPriceLowerX96 = getSqrtRatioAtTick(tickLower)
+  const sqrtPriceUpperX96 = getSqrtRatioAtTick(tickUpper)
+  
+  // Ensure sqrtPriceLowerX96 < sqrtPriceUpperX96
+  const sqrtRatioAX96 = sqrtPriceLowerX96 < sqrtPriceUpperX96 ? sqrtPriceLowerX96 : sqrtPriceUpperX96
+  const sqrtRatioBX96 = sqrtPriceLowerX96 < sqrtPriceUpperX96 ? sqrtPriceUpperX96 : sqrtPriceLowerX96
+  
+  let amount0 = BigInt(0)
+  let amount1 = BigInt(0)
+  
+  if (sqrtPriceX96 < sqrtRatioAX96) {
+    // Current price is below range - position is entirely in token0
+    // amount0 = (liquidity * Q96 * (sqrtRatioBX96 - sqrtRatioAX96)) / (sqrtRatioBX96 * sqrtRatioAX96)
+    const numerator = liquidityBigInt * Q96 * (sqrtRatioBX96 - sqrtRatioAX96)
+    amount0 = numerator / sqrtRatioBX96 / sqrtRatioAX96
+  } else if (sqrtPriceX96 >= sqrtRatioBX96) {
+    // Current price is above range - position is entirely in token1
+    // amount1 = (liquidity * (sqrtRatioBX96 - sqrtRatioAX96)) / Q96
+    amount1 = (liquidityBigInt * (sqrtRatioBX96 - sqrtRatioAX96)) / Q96
   } else {
-    // Position is in range, has both tokens
-    amount0 = liquidityNum * (1 / sqrtPriceCurrent - 1 / sqrtPriceUpper)
-    amount1 = liquidityNum * (sqrtPriceCurrent - sqrtPriceLower)
+    // Current price is in range - position has both tokens
+    // amount0 = (liquidity * Q96 * (sqrtRatioBX96 - sqrtPriceX96)) / (sqrtRatioBX96 * sqrtPriceX96)
+    const amount0Numerator = liquidityBigInt * Q96 * (sqrtRatioBX96 - sqrtPriceX96)
+    amount0 = amount0Numerator / sqrtRatioBX96 / sqrtPriceX96
+    
+    // amount1 = (liquidity * (sqrtPriceX96 - sqrtRatioAX96)) / Q96
+    amount1 = (liquidityBigInt * (sqrtPriceX96 - sqrtRatioAX96)) / Q96
   }
 
   return {
-    amount0: Math.max(0, amount0).toFixed(6),
-    amount1: Math.max(0, amount1).toFixed(6),
+    amount0: amount0.toString(),
+    amount1: amount1.toString(),
   }
 }
 

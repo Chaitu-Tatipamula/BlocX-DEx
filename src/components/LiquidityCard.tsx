@@ -120,10 +120,14 @@ export function LiquidityCard() {
   const fetchPoolInfo = useCallback(async () => {
     if (!tokenA || !tokenB || !publicClient) return
 
-    setLoadingPoolInfo(true)
+      setLoadingPoolInfo(true)
     try {
       const poolService = new PoolService(publicClient)
-      const pool = await poolService.getPoolDetails(tokenA.address, tokenB.address, feeTier)
+      // Convert BCX to WBCX for pool lookups
+      const poolTokenA = tokenA?.symbol === 'BCX' ? tokens.WBCX : tokenA
+      const poolTokenB = tokenB?.symbol === 'BCX' ? tokens.WBCX : tokenB
+      if (!poolTokenA || !poolTokenB) return
+      const pool = await poolService.getPoolDetails(poolTokenA.address, poolTokenB.address, feeTier)
       
       if (pool) {
         setPoolExists(true)
@@ -287,16 +291,13 @@ export function LiquidityCard() {
       return
     }
 
-    // Check if using native BCX token (not allowed for pools)
-    if (tokenA?.symbol === 'BCX' || tokenB?.symbol === 'BCX') {
-      addError({ title: 'Invalid Token', message: 'Cannot create pools with native BCX. Please use WBCX (Wrapped BCX) instead.' })
-      return
-    }
-
-    // Check if token addresses are valid
-    if (tokenA?.address === '0x0000000000000000000000000000000000000000' || 
-        tokenB?.address === '0x0000000000000000000000000000000000000000') {
-      addError({ title: 'Invalid Token Address', message: 'Invalid token address. Please select valid tokens.' })
+    // Convert BCX to WBCX for pool operations (Uniswap-style automatic wrapping)
+    // UI shows BCX but contract uses WBCX
+    const poolTokenA = tokenA?.symbol === 'BCX' ? tokens.WBCX : tokenA
+    const poolTokenB = tokenB?.symbol === 'BCX' ? tokens.WBCX : tokenB
+    
+    if (!poolTokenA || !poolTokenB) {
+      addError({ title: 'Invalid Token', message: 'Please select valid tokens.' })
       return
     }
 
@@ -308,27 +309,67 @@ export function LiquidityCard() {
       const amountBDesiredWei = amountBNum > 0 ? parseUnits(amountB, tokenB.decimals) : BigInt(0)
       const deadlineTimestamp = Math.floor(Date.now() / 1000) + deadline * 60
 
-      // Check if pool exists, create if needed
+      // Wrap BCX to WBCX if needed (automatic wrapping like Uniswap)
+      if (tokenA?.symbol === 'BCX' && amountANum > 0) {
+        const wrapHash = await walletClient.writeContract({
+          address: tokens.WBCX.address as Address,
+          abi: [
+            {
+              inputs: [],
+              name: 'deposit',
+              outputs: [],
+              stateMutability: 'payable',
+              type: 'function',
+            },
+          ],
+          functionName: 'deposit',
+          value: amountADesiredWei,
+        })
+        if (wrapHash) addTx({ hash: wrapHash, title: 'BCX Wrapped to WBCX' })
+        await publicClient.waitForTransactionReceipt({ hash: wrapHash })
+      }
+      
+      if (tokenB?.symbol === 'BCX' && amountBNum > 0) {
+        const wrapHash = await walletClient.writeContract({
+          address: tokens.WBCX.address as Address,
+          abi: [
+            {
+              inputs: [],
+              name: 'deposit',
+              outputs: [],
+              stateMutability: 'payable',
+              type: 'function',
+            },
+          ],
+          functionName: 'deposit',
+          value: amountBDesiredWei,
+        })
+        if (wrapHash) addTx({ hash: wrapHash, title: 'BCX Wrapped to WBCX' })
+        await publicClient.waitForTransactionReceipt({ hash: wrapHash })
+      }
+
+      // Check if pool exists, create if needed (use WBCX addresses)
       if (!poolExists) {
         const poolService = new PoolService(publicClient, walletClient)
         // Compute initial price for pool initialization (token1/token0) adjusted for decimals
-        const token0 = tokenA.address.toLowerCase() < tokenB.address.toLowerCase() ? tokenA : tokenB
-        const token1 = token0.address === tokenA.address ? tokenB : tokenA
+        const token0 = poolTokenA.address.toLowerCase() < poolTokenB.address.toLowerCase() ? poolTokenA : poolTokenB
+        const token1 = token0.address === poolTokenA.address ? poolTokenB : poolTokenA
         const inputPriceAB = parseFloat(initialPriceInput) || 1 // price of tokenA in tokenB
-        const price01 = token0.address === tokenA.address ? inputPriceAB : (inputPriceAB > 0 ? 1 / inputPriceAB : 1)
+        const price01 = token0.address === poolTokenA.address ? inputPriceAB : (inputPriceAB > 0 ? 1 / inputPriceAB : 1)
         const normalizedPrice = price01 * Math.pow(10, (token1.decimals - token0.decimals))
 
         await poolService.createPoolIfNeeded(
-          tokenA.address,
-          tokenB.address,
+          poolTokenA.address,
+          poolTokenB.address,
           feeTier,
           normalizedPrice
         )
       }
 
-      // Approve tokens
-      const tokenAContract = { address: tokenA.address as Address, abi: ERC20_ABI }
-      const tokenBContract = { address: tokenB.address as Address, abi: ERC20_ABI }
+      // Approve tokens (use WBCX addresses for BCX)
+      // Note: For BCX, we wrap it to WBCX first, then approve WBCX (not native BCX)
+      const tokenAContract = { address: poolTokenA.address as Address, abi: ERC20_ABI }
+      const tokenBContract = { address: poolTokenB.address as Address, abi: ERC20_ABI }
       
       // Only approve if amount > 0
       if (amountANum > 0) {
@@ -388,19 +429,19 @@ export function LiquidityCard() {
       }
 
       // IMPORTANT: Uniswap V3 requires token0 < token1 (address comparison)
-      // Sort tokens and swap amounts accordingly
-      const token0Address = tokenA.address.toLowerCase() < tokenB.address.toLowerCase() 
-        ? tokenA.address as Address 
-        : tokenB.address as Address
-      const token1Address = tokenA.address.toLowerCase() < tokenB.address.toLowerCase() 
-        ? tokenB.address as Address 
-        : tokenA.address as Address
+      // Sort tokens and swap amounts accordingly (use WBCX addresses for BCX)
+      const token0Address = poolTokenA.address.toLowerCase() < poolTokenB.address.toLowerCase() 
+        ? poolTokenA.address as Address 
+        : poolTokenB.address as Address
+      const token1Address = poolTokenA.address.toLowerCase() < poolTokenB.address.toLowerCase() 
+        ? poolTokenB.address as Address 
+        : poolTokenA.address as Address
       
       // Swap amounts if tokens were swapped
-      const amount0Desired = tokenA.address.toLowerCase() < tokenB.address.toLowerCase()
+      const amount0Desired = poolTokenA.address.toLowerCase() < poolTokenB.address.toLowerCase()
         ? amountADesiredWei
         : amountBDesiredWei
-      const amount1Desired = tokenA.address.toLowerCase() < tokenB.address.toLowerCase()
+      const amount1Desired = poolTokenA.address.toLowerCase() < poolTokenB.address.toLowerCase()
         ? amountBDesiredWei
         : amountADesiredWei
 
@@ -409,9 +450,9 @@ export function LiquidityCard() {
         throw new Error('Invalid tick range: minTick must be less than maxTick')
       }
 
-      // Get token info for logging
-      const token0Info = tokenA.address.toLowerCase() < tokenB.address.toLowerCase() ? tokenA : tokenB
-      const token1Info = tokenA.address.toLowerCase() < tokenB.address.toLowerCase() ? tokenB : tokenA
+      // Get token info for logging (use pool tokens which may be WBCX if BCX was selected)
+      const token0Info = poolTokenA.address.toLowerCase() < poolTokenB.address.toLowerCase() ? poolTokenA : poolTokenB
+      const token1Info = poolTokenA.address.toLowerCase() < poolTokenB.address.toLowerCase() ? poolTokenB : poolTokenA
       
       // Check if price range includes current price
       const currentTick = currentPrice ? priceToTick(currentPrice) : null
@@ -726,7 +767,6 @@ export function LiquidityCard() {
               selectedToken={tokenA}
               onTokenSelect={handleTokenASelect}
               balance={tokenABalance}
-                  excludeBCX={true}
                 />
         </div>
 
@@ -743,7 +783,6 @@ export function LiquidityCard() {
               onTokenSelect={handleTokenBSelect}
               balance={tokenBBalance}
                   disabled={isLoading}
-                  excludeBCX={true}
                 />
               </div>
             </div>

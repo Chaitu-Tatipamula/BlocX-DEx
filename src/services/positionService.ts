@@ -401,12 +401,20 @@ export class PositionService {
     amount0Min: string,
     amount1Min: string,
     deadline: number,
-    recipient: Address
+    recipient: Address,
+    unwrapWBCX?: boolean // Option to unwrap WBCX to BCX
   ): Promise<string> {
     try {
-      const liquidityWei = parseUnits(liquidity, 18)
-      const amount0MinWei = parseUnits(amount0Min, 18)
-      const amount1MinWei = parseUnits(amount1Min, 18)
+      // Liquidity is already in uint128 format (no decimals), use directly as BigInt
+      const liquidityWei = BigInt(liquidity)
+      
+      // amount0Min and amount1Min are in human-readable format, need to parse with decimals
+      // But if they're '0', just use BigInt(0) to avoid parsing issues
+      // For now, since they're always passed as '0', we'll use BigInt(0)
+      // If we need to support non-zero values in the future, we'd need token decimals
+      const amount0MinWei = amount0Min === '0' ? BigInt(0) : parseUnits(amount0Min, 18)
+      const amount1MinWei = amount1Min === '0' ? BigInt(0) : parseUnits(amount1Min, 18)
+      
       const deadlineTimestamp = Math.floor(Date.now() / 1000) + deadline * 60
 
       const decreaseHash = await this.walletClient.writeContract({
@@ -422,6 +430,8 @@ export class PositionService {
         }],
       })
 
+      await this.publicClient.waitForTransactionReceipt({ hash: decreaseHash })
+
       const collectHash = await this.walletClient.writeContract({
         address: CONTRACT_ADDRESSES.NONFUNGIBLE_POSITION_MANAGER,
         abi: NONFUNGIBLE_POSITION_MANAGER_ABI,
@@ -433,6 +443,46 @@ export class PositionService {
           amount1Max: BigInt('340282366920938463463374607431768211455'),
         }],
       })
+
+      await this.publicClient.waitForTransactionReceipt({ hash: collectHash })
+
+      // If unwrapWBCX is true, unwrap any WBCX received to BCX
+      if (unwrapWBCX) {
+        const wbcxBalance = await this.publicClient.readContract({
+          address: CONTRACT_ADDRESSES.WBCX as Address,
+          abi: [
+            {
+              inputs: [{ internalType: 'address', name: 'account', type: 'address' }],
+              name: 'balanceOf',
+              outputs: [{ internalType: 'uint256', name: '', type: 'uint256' }],
+              stateMutability: 'view',
+              type: 'function',
+            },
+          ],
+          functionName: 'balanceOf',
+          args: [recipient],
+        })
+
+        if (wbcxBalance > BigInt(0)) {
+          const unwrapHash = await this.walletClient.writeContract({
+            address: CONTRACT_ADDRESSES.WBCX as Address,
+            abi: [
+              {
+                inputs: [{ internalType: 'uint256', name: 'amount', type: 'uint256' }],
+                name: 'withdraw',
+                outputs: [],
+                stateMutability: 'nonpayable',
+                type: 'function',
+              },
+            ],
+            functionName: 'withdraw',
+            args: [wbcxBalance],
+          })
+
+          await this.publicClient.waitForTransactionReceipt({ hash: unwrapHash })
+          return unwrapHash
+        }
+      }
 
       return collectHash
     } catch (error) {
@@ -447,8 +497,15 @@ export class PositionService {
     amount1Max: string
   ): Promise<string> {
     try {
-      const amount0MaxWei = parseUnits(amount0Max, 18)
-      const amount1MaxWei = parseUnits(amount1Max, 18)
+      // If amount0Max/amount1Max is the max uint128 string, use it directly as BigInt
+      // Otherwise, parse it as a decimal string with appropriate decimals
+      const MAX_UINT128 = '340282366920938463463374607431768211455'
+      const amount0MaxWei = amount0Max === MAX_UINT128 
+        ? BigInt(MAX_UINT128)
+        : parseUnits(amount0Max, 18)
+      const amount1MaxWei = amount1Max === MAX_UINT128
+        ? BigInt(MAX_UINT128)
+        : parseUnits(amount1Max, 18)
 
       const hash = await this.walletClient.writeContract({
         address: CONTRACT_ADDRESSES.NONFUNGIBLE_POSITION_MANAGER,

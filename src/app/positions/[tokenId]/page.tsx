@@ -8,6 +8,7 @@ import { PositionService } from '@/services/positionService'
 import { PoolService } from '@/services/poolService'
 import { PositionDetails } from '@/types/position'
 import { formatBalance } from '@/lib/utils'
+import { formatUnits } from 'viem'
 import { 
   formatPrice, 
   isInRange, 
@@ -18,7 +19,7 @@ import {
   getPositionStatusBadge 
 } from '@/lib/positionAnalysis'
 import { Loader2, ArrowLeft, TrendingUp, RefreshCw } from 'lucide-react'
-import { tokenList, type Token } from '@/config/tokens'
+import { tokenList, tokens, type Token } from '@/config/tokens'
 import { IncreaseLiquidityModal } from '@/components/IncreaseLiquidityModal'
 import { useTx } from '@/context/tx'
 
@@ -73,20 +74,21 @@ export default function PositionDetailPage({ params }: { params: Promise<{ token
         const priceRange = getPriceRangeDisplay(foundPosition.tickLower, foundPosition.tickUpper)
         const amounts = getTokenAmounts(
           foundPosition.liquidity,
-          pool.currentTick,
+          pool.sqrtPriceX96,
           foundPosition.tickLower,
           foundPosition.tickUpper
         )
         
-        const amount0Num = parseFloat(amounts.amount0)
-        const amount1Num = parseFloat(amounts.amount1)
+        // Amounts are now in wei (raw units), convert to human-readable using formatUnits
+        const amount0Wei = BigInt(amounts.amount0)
+        const amount1Wei = BigInt(amounts.amount1)
         
-        // Divide by 10^decimals to convert from calculated units to human-readable
-        const formattedAmount0 = amount0Num > 0 
-          ? formatBalance((amount0Num / Math.pow(10, pool.token0.decimals)).toString(), pool.token0.decimals)
+        // Convert from wei to human-readable format
+        const formattedAmount0 = amount0Wei > BigInt(0)
+          ? formatBalance(formatUnits(amount0Wei, pool.token0.decimals), pool.token0.decimals)
           : '0'
-        const formattedAmount1 = amount1Num > 0
-          ? formatBalance((amount1Num / Math.pow(10, pool.token1.decimals)).toString(), pool.token1.decimals)
+        const formattedAmount1 = amount1Wei > BigInt(0)
+          ? formatBalance(formatUnits(amount1Wei, pool.token1.decimals), pool.token1.decimals)
           : '0'
         
         const apr = estimateAPR(foundPosition, foundPosition.fee, '0')
@@ -141,6 +143,15 @@ export default function PositionDetailPage({ params }: { params: Promise<{ token
     }
   }
 
+  const [unwrapWBCX, setUnwrapWBCX] = useState(false)
+
+  // Check if position contains WBCX (so we can offer unwrap option)
+  const hasWBCX = useMemo(() => {
+    if (!position) return false
+    const wbcxAddress = tokens.WBCX.address.toLowerCase()
+    return position.token0.toLowerCase() === wbcxAddress || position.token1.toLowerCase() === wbcxAddress
+  }, [position])
+
   const handleRemoveLiquidity = async () => {
     if (!walletClient || !address || !position) return
 
@@ -154,10 +165,12 @@ export default function PositionDetailPage({ params }: { params: Promise<{ token
         '0',
         '0',
         20,
-        address
+        address,
+        unwrapWBCX // Pass unwrap option
       )
-      addTx({ hash, title: 'Liquidity Removed' })
+      addTx({ hash, title: unwrapWBCX ? 'Liquidity Removed (WBCX Unwrapped)' : 'Liquidity Removed' })
       await fetchPositionDetails()
+      setUnwrapWBCX(false) // Reset checkbox
     } catch (error) {
       console.error('Error removing liquidity:', error)
       addError({ title: 'Failed to Remove Liquidity', message: error instanceof Error ? error.message : 'Failed to remove liquidity' })
@@ -177,15 +190,38 @@ export default function PositionDetailPage({ params }: { params: Promise<{ token
 
     try {
       const positionService = new PositionService(publicClient, walletClient)
-      const hash = await positionService.removeLiquidity(
+      
+      if (!publicClient) return
+      
+      // Step 1: Remove all liquidity (decrease liquidity to 0)
+      if (parseFloat(position.liquidity) > 0) {
+        const decreaseHash = await positionService.removeLiquidity(
+          tokenId,
+          position.liquidity,
+          '0',
+          '0',
+          20,
+          address,
+          unwrapWBCX // Pass unwrap option if WBCX is present
+        )
+        await publicClient.waitForTransactionReceipt({ hash: decreaseHash as `0x${string}` })
+        addTx({ hash: decreaseHash, title: 'Liquidity Removed' })
+      }
+      
+      // Step 2: Collect all remaining tokens and fees
+      const collectHash = await positionService.collectFees(
         tokenId,
-        position.liquidity,
-        '0',
-        '0',
-        20,
-        address
+        address,
+        '340282366920938463463374607431768211455', // Max uint128
+        '340282366920938463463374607431768211455'  // Max uint128
       )
-      addTx({ hash, title: 'Position Burned' })
+      await publicClient.waitForTransactionReceipt({ hash: collectHash as `0x${string}` })
+      addTx({ hash: collectHash, title: 'Tokens Collected' })
+      
+      // Step 3: Burn the NFT position (can only burn if liquidity = 0 and tokensOwed = 0)
+      const burnHash = await positionService.burnPosition(tokenId)
+      addTx({ hash: burnHash, title: 'Position Burned' })
+      
       await fetchPositionDetails()
     } catch (error) {
       console.error('Error burning position:', error)
@@ -472,6 +508,21 @@ export default function PositionDetailPage({ params }: { params: Promise<{ token
                 >
                   Increase Liquidity
                 </button>
+                {hasWBCX && (
+                  <div className="sm:col-span-2 flex items-center gap-2 p-3 glass-card rounded-lg">
+                    <input
+                      type="checkbox"
+                      id="unwrap-wbcx"
+                      checked={unwrapWBCX}
+                      onChange={(e) => setUnwrapWBCX(e.target.checked)}
+                      disabled={removeLiquidityLoading}
+                      className="w-4 h-4 rounded border-white/20 bg-white/10 text-blue-500 focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+                    />
+                    <label htmlFor="unwrap-wbcx" className="text-sm text-white/80 cursor-pointer">
+                      Unwrap WBCX to BCX when removing liquidity
+                    </label>
+                  </div>
+                )}
                 <button
                   onClick={handleRemoveLiquidity}
                   disabled={collectFeesLoading || removeLiquidityLoading || burnPositionLoading}

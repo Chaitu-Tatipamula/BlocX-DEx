@@ -7,7 +7,7 @@ import { TokenSelector } from './TokenSelector'
 import { SettingsModal } from './SettingsModal'
 import { SwapDetailsModal } from './SwapDetailsModal'
 import { tokens, type Token } from '@/config/tokens'
-import { getQuote, getTokenBalance, executeSwap, approveToken, getTokenAllowance, wrapBCX, unwrapWBCX, isWrapUnwrapOperation, checkPoolExists, checkPoolLiquidity } from '@/lib/swap'
+import { getQuote, getTokenBalance, executeSwap, approveToken, getTokenAllowance, wrapBCX, unwrapWBCX, isWrapUnwrapOperation, checkPoolExists, checkPoolLiquidity, FEE_TIERS } from '@/lib/swap'
 import { formatBalance, formatPriceImpact, getPriceImpactColor } from '@/lib/utils'
 import { useTx } from "../context/tx"
 
@@ -29,6 +29,7 @@ export function SwapCard() {
   const [minimumReceived, setMinimumReceived] = useState('')
   const [exchangeRate, setExchangeRate] = useState('')
   const [fee, setFee] = useState('0.05%')
+  const [selectedFeeTier, setSelectedFeeTier] = useState<number | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [isQuoteLoading, setIsQuoteLoading] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
@@ -74,7 +75,7 @@ export function SwapCard() {
     }
   }, [address, publicClient, tokenIn?.address, tokenIn?.symbol, tokenOut?.address, tokenOut?.symbol])
 
-  // Check pool status
+  // Check pool status - check all fee tiers
   const checkPoolStatus = useCallback(async () => {
     if (!tokenIn || !tokenOut || !publicClient) {
       setPoolStatus(null)
@@ -97,16 +98,37 @@ export function SwapCard() {
     try {
       const tokenInAddress = tokenIn.symbol === 'BCX' ? tokens.WBCX.address : tokenIn.address
       const tokenOutAddress = tokenOut.symbol === 'BCX' ? tokens.WBCX.address : tokenOut.address
-      const fee = 500
-
-      const exists = await checkPoolExists(publicClient, tokenInAddress, tokenOutAddress, fee)
-      setPoolExists(exists)
-
-      if (exists) {
-        const liquidity = await checkPoolLiquidity(publicClient, tokenInAddress, tokenOutAddress, fee)
-        setPoolLiquidity(liquidity)
-        setPoolStatus(liquidity.hasLiquidity ? 'exists' : 'no-liquidity')
+      
+      // Check all fee tiers to find pools with liquidity
+      let foundPool = false
+      let bestLiquidity: { hasLiquidity: boolean; liquidity: string } | null = null
+      
+      for (const fee of FEE_TIERS) {
+        const exists = await checkPoolExists(publicClient, tokenInAddress, tokenOutAddress, fee)
+        if (exists) {
+          foundPool = true
+          const liquidity = await checkPoolLiquidity(publicClient, tokenInAddress, tokenOutAddress, fee)
+          if (liquidity.hasLiquidity) {
+            // Found a pool with liquidity, use it
+            setPoolExists(true)
+            setPoolLiquidity(liquidity)
+            setPoolStatus('exists')
+            return
+          } else if (!bestLiquidity) {
+            // Store first pool found even if no liquidity (for display)
+            bestLiquidity = liquidity
+          }
+        }
+      }
+      
+      if (foundPool) {
+        // Pool exists but no liquidity
+        setPoolExists(true)
+        setPoolLiquidity(bestLiquidity || { hasLiquidity: false, liquidity: '0' })
+        setPoolStatus('no-liquidity')
       } else {
+        // No pool found across any fee tier
+        setPoolExists(false)
         setPoolLiquidity({ hasLiquidity: false, liquidity: '0' })
         setPoolStatus('not-exists')
       }
@@ -141,23 +163,28 @@ export function SwapCard() {
       setIsQuoteLoading(true)
 
       try {
+        // Convert BCX to WBCX for quote (pools use WBCX, not BCX)
+        const tokenInForQuote = tokenIn.symbol === 'BCX' ? 'BCX' : tokenIn.address
+        const tokenOutForQuote = tokenOut.symbol === 'BCX' ? 'BCX' : tokenOut.address
+        
         const quote = await getQuote(
           publicClient,
-          tokenIn.address,
-          tokenOut.address,
+          tokenInForQuote,
+          tokenOutForQuote,
           amountIn
         )
         
         setAmountOut(quote.amountOut)
         setPriceImpact(quote.priceImpact)
         setMinimumReceived(quote.minimumReceived)
+        setSelectedFeeTier(quote.fee)
         
         // Calculate exchange rate
-        const rate = parseFloat(amountOut) / parseFloat(amountIn)
+        const rate = parseFloat(quote.amountOut) / parseFloat(amountIn)
         setExchangeRate(rate.toFixed(6))
         
-        // Calculate fee (simplified - in real implementation, get from pool)
-        setFee('0.05%')
+        // Display fee tier from quote
+        setFee(`${(quote.fee / 10000).toFixed(2)}%`)
       } catch (err) {
         addError({ title: 'Failed to Get Quote', message: 'Failed to get swap quote. Please try again.' })
         setAmountOut('')
@@ -275,6 +302,7 @@ export function SwapCard() {
         recipient: address,
         decimalsIn: tokenIn.decimals,
         decimalsOut: tokenOut.decimals,
+        fee: selectedFeeTier || undefined, // Use the fee tier from the quote
       })
       
       if (swapHash) {

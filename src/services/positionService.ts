@@ -42,81 +42,105 @@ export class PositionService {
         args: [userAddress],
       })
 
-      const positions = []
       const balanceNum = Number(balance)
+      if (balanceNum === 0) return []
 
-      for (let i = 0; i < balanceNum; i++) {
-        try {
-          const tokenId = await this.publicClient.readContract({
-            address: CONTRACT_ADDRESSES.NONFUNGIBLE_POSITION_MANAGER,
-            abi: NONFUNGIBLE_POSITION_MANAGER_ABI,
-            functionName: 'tokenOfOwnerByIndex',
-            args: [userAddress, BigInt(i)],
-          })
+      // Parallelize tokenId fetching
+      const tokenIdPromises = Array.from({ length: balanceNum }, (_, i) =>
+        this.publicClient.readContract({
+          address: CONTRACT_ADDRESSES.NONFUNGIBLE_POSITION_MANAGER,
+          abi: NONFUNGIBLE_POSITION_MANAGER_ABI,
+          functionName: 'tokenOfOwnerByIndex',
+          args: [userAddress, BigInt(i)],
+        }).catch(() => null)
+      )
 
-          const position = await this.publicClient.readContract({
-            address: CONTRACT_ADDRESSES.NONFUNGIBLE_POSITION_MANAGER,
-            abi: NONFUNGIBLE_POSITION_MANAGER_ABI,
-            functionName: 'positions',
-            args: [tokenId],
-          })
+      const tokenIds = (await Promise.all(tokenIdPromises)).filter((id): id is bigint => id !== null)
 
-          const [
-            nonce,
-            operator,
-            token0,
-            token1,
-            fee,
-            tickLower,
-            tickUpper,
-            liquidity,
-            feeGrowthInside0LastX128,
-            feeGrowthInside1LastX128,
-            tokensOwed0,
-            tokensOwed1,
-          ] = position as any[]
+      if (tokenIds.length === 0) return []
 
-          // Get token decimals for proper formatting
-          let token0Decimals = 18
-          let token1Decimals = 18
-          try {
-            token0Decimals = await this.publicClient.readContract({
-              address: token0 as Address,
-              abi: ERC20_ABI,
-              functionName: 'decimals',
-            })
-          } catch {
-            // Default to 18 if can't fetch
-          }
-          try {
-            token1Decimals = await this.publicClient.readContract({
-              address: token1 as Address,
-              abi: ERC20_ABI,
-              functionName: 'decimals',
-            })
-          } catch {
-            // Default to 18 if can't fetch
-          }
+      // Parallelize position fetching
+      const positionPromises = tokenIds.map(tokenId =>
+        this.publicClient.readContract({
+          address: CONTRACT_ADDRESSES.NONFUNGIBLE_POSITION_MANAGER,
+          abi: NONFUNGIBLE_POSITION_MANAGER_ABI,
+          functionName: 'positions',
+          args: [tokenId],
+        }).catch(() => null)
+      )
 
-          positions.push({
-            tokenId: tokenId.toString(),
-            token0,
-            token1,
-            fee: Number(fee),
-            tickLower: Number(tickLower),
-            tickUpper: Number(tickUpper),
-            liquidity: liquidity.toString(), // Keep as raw string for calculations
-            tokensOwed0: formatUnits(tokensOwed0, token0Decimals), // Use actual token decimals
-            tokensOwed1: formatUnits(tokensOwed1, token1Decimals), // Use actual token decimals
-          })
-        } catch (positionError) {
-          console.error(`Error fetching position at index ${i}:`, positionError)
-          // Continue fetching other positions even if one fails
+      const positionsData = await Promise.all(positionPromises)
+      
+      // Collect unique token addresses for batch decimal fetching
+      const tokenAddresses = new Set<string>()
+      positionsData.forEach((position) => {
+        if (position) {
+          const [, , token0, token1] = position as any[]
+          tokenAddresses.add(token0 as string)
+          tokenAddresses.add(token1 as string)
         }
+      })
+
+      // Batch fetch decimals for all unique tokens
+      const decimalsMap = new Map<string, number>()
+      const decimalsPromises = Array.from(tokenAddresses).map(async (address) => {
+        try {
+          const decimals = await this.publicClient.readContract({
+            address: address as Address,
+            abi: ERC20_ABI,
+            functionName: 'decimals',
+          })
+          return { address, decimals: Number(decimals) }
+        } catch {
+          return { address, decimals: 18 } // Default to 18
+        }
+      })
+
+      const decimalsResults = await Promise.all(decimalsPromises)
+      decimalsResults.forEach(({ address, decimals }) => {
+        decimalsMap.set(address, decimals)
+      })
+
+      // Process positions with cached decimals
+      const positions: Position[] = []
+      for (let i = 0; i < tokenIds.length; i++) {
+        const position = positionsData[i]
+        if (!position) continue
+
+        const [
+          nonce,
+          operator,
+          token0,
+          token1,
+          fee,
+          tickLower,
+          tickUpper,
+          liquidity,
+          feeGrowthInside0LastX128,
+          feeGrowthInside1LastX128,
+          tokensOwed0,
+          tokensOwed1,
+        ] = position as any[]
+
+        const token0Decimals = decimalsMap.get(token0 as string) || 18
+        const token1Decimals = decimalsMap.get(token1 as string) || 18
+
+        positions.push({
+          tokenId: tokenIds[i].toString(),
+          token0,
+          token1,
+          fee: Number(fee),
+          tickLower: Number(tickLower),
+          tickUpper: Number(tickUpper),
+          liquidity: liquidity.toString(),
+          tokensOwed0: formatUnits(tokensOwed0, token0Decimals),
+          tokensOwed1: formatUnits(tokensOwed1, token1Decimals),
+        })
       }
 
       return positions
     } catch (error) {
+      console.error('Error fetching positions:', error)
       return []
     }
   }
@@ -190,10 +214,59 @@ export class PositionService {
         finalAmount1Desired = amount1
       }
       
-      const amount0DesiredWei = parseUnits(finalAmount0Desired, 18)
-      const amount1DesiredWei = parseUnits(finalAmount1Desired, 18)
-      const amount0MinWei = parseUnits(amount0Min, 18)
-      const amount1MinWei = parseUnits(amount1Min, 18)
+      // Get token decimals
+      const [token0Decimals, token1Decimals] = await Promise.all([
+        this.publicClient.readContract({
+          address: token0 as Address,
+          abi: ERC20_ABI,
+          functionName: 'decimals',
+        }).catch(() => 18),
+        this.publicClient.readContract({
+          address: token1 as Address,
+          abi: ERC20_ABI,
+          functionName: 'decimals',
+        }).catch(() => 18),
+      ])
+
+      // Helper function to convert scientific notation to fixed decimal string
+      const toFixedDecimal = (value: string, decimals: number): string => {
+        // Handle string input that might be in scientific notation
+        let num: number
+        if (typeof value === 'string' && (value.includes('e') || value.includes('E'))) {
+          // Parse scientific notation manually
+          num = parseFloat(value)
+        } else {
+          num = parseFloat(value)
+        }
+        
+        if (isNaN(num) || !isFinite(num)) return '0'
+        if (num === 0) return '0'
+        if (num < 0) return '0' // Don't allow negative
+        
+        // For extremely small numbers (less than 1e-10), treat as 0 to avoid precision issues
+        // This prevents issues with viem parseUnits which doesn't accept scientific notation
+        if (Math.abs(num) < 1e-10) return '0'
+        
+        // Convert to fixed decimal notation, avoiding scientific notation
+        // Use enough decimal places but cap at reasonable precision
+        const maxDecimals = Math.min(decimals, 18)
+        const fixed = num.toFixed(maxDecimals)
+        
+        // Remove trailing zeros but ensure we have a valid number
+        const cleaned = fixed.replace(/\.?0+$/, '')
+        return cleaned || '0'
+      }
+
+      // Convert amounts to fixed decimal strings before parsing
+      const fixedAmount0Desired = toFixedDecimal(finalAmount0Desired, Number(token0Decimals))
+      const fixedAmount1Desired = toFixedDecimal(finalAmount1Desired, Number(token1Decimals))
+      const fixedAmount0Min = toFixedDecimal(amount0Min, Number(token0Decimals))
+      const fixedAmount1Min = toFixedDecimal(amount1Min, Number(token1Decimals))
+
+      const amount0DesiredWei = parseUnits(fixedAmount0Desired, Number(token0Decimals))
+      const amount1DesiredWei = parseUnits(fixedAmount1Desired, Number(token1Decimals))
+      const amount0MinWei = parseUnits(fixedAmount0Min, Number(token0Decimals))
+      const amount1MinWei = parseUnits(fixedAmount1Min, Number(token1Decimals))
 
       // Check token balances before attempting transaction
       const balance0 = await this.publicClient.readContract({
@@ -220,11 +293,11 @@ export class PositionService {
       })
 
       if (balance0 < amount0DesiredWei) {
-        throw new Error(`Insufficient ${token0} balance. Required: ${finalAmount0Desired}, Available: ${formatUnits(balance0, 18)}`)
+        throw new Error(`Insufficient ${token0} balance. Required: ${fixedAmount0Desired}, Available: ${formatUnits(balance0, Number(token0Decimals))}`)
       }
 
       if (balance1 < amount1DesiredWei) {
-        throw new Error(`Insufficient ${token1} balance. Required: ${finalAmount1Desired}, Available: ${formatUnits(balance1, 18)}`)
+        throw new Error(`Insufficient ${token1} balance. Required: ${fixedAmount1Desired}, Available: ${formatUnits(balance1, Number(token1Decimals))}`)
       }
 
       // Approve tokens for the position manager

@@ -11,6 +11,7 @@ import { Position } from '@/types/position'
 import { formatBalance } from '@/lib/utils'
 import { formatPrice, isInRange, getPriceRangeDisplay } from '@/lib/positionAnalysis'
 import { Loader2, ArrowLeft, Plus } from 'lucide-react'
+import { useTx } from '@/context/tx'
 
 export default function PoolDetailPage({ params }: { params: Promise<{ poolId: string }> }) {
   const resolvedParams = use(params)
@@ -19,17 +20,16 @@ export default function PoolDetailPage({ params }: { params: Promise<{ poolId: s
   const { address, isConnected } = useAccount()
   const publicClient = usePublicClient()
 
+  const { addError } = useTx()
   const [pool, setPool] = useState<PoolDetails | null>(null)
   const [userPositions, setUserPositions] = useState<Position[]>([])
   const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     async function fetchPoolData() {
       if (!publicClient) return
 
       setIsLoading(true)
-      setError(null)
 
       try {
         // Note: We need to reverse-lookup the pool info from the address
@@ -46,7 +46,7 @@ export default function PoolDetailPage({ params }: { params: Promise<{ poolId: s
       setPool(poolDetails)   
       } catch (err) {
         console.error('Error fetching pool data:', err)
-        setError('Failed to load pool details')
+        addError({ title: 'Failed to Load Pool', message: err instanceof Error ? err.message : 'Failed to load pool details' })
       } finally {
         setIsLoading(false)
       }
@@ -80,20 +80,6 @@ export default function PoolDetailPage({ params }: { params: Promise<{ poolId: s
             </div>
           )}
 
-          {/* Error State */}
-          {error && !isLoading && (
-            <div className="text-center py-12">
-              <div className="text-red-400 glass-card border border-red-500/30 p-4 rounded-lg inline-block mb-4">
-                {error}
-              </div>
-              <Link
-                href="/pools"
-                className="text-white hover:text-white/80 font-medium"
-              >
-                View all pools →
-              </Link>
-            </div>
-          )}
 
           {/* Pool Details (when available) */}
           {pool && !isLoading && (
@@ -166,23 +152,23 @@ export default function PoolDetailPage({ params }: { params: Promise<{ poolId: s
               <div className="grid grid-cols-2 gap-4">
                 <div className="glass-card rounded-lg p-4 border border-white/10">
                   <p className="text-sm text-white/70 mb-1">Current Price</p>
-                  <p className="text-2xl font-semibold text-white">
+                  <p className="text-2xl font-semibold text-white break-words overflow-wrap-anywhere">
                     {formatPrice(pool.currentPrice)}
                   </p>
                 </div>
                 <div className="glass-card rounded-lg p-4 border border-white/10">
                   <p className="text-sm text-white/70 mb-1">Total Liquidity</p>
-                  <p className="text-2xl font-semibold text-white">
+                  <p className="text-2xl font-semibold text-white break-words overflow-wrap-anywhere">
                     {formatBalance(pool.liquidity)}
                   </p>
                 </div>
                 <div className="glass-card rounded-lg p-4 border border-white/10">
                   <p className="text-sm text-white/70 mb-1">Current Tick</p>
-                  <p className="text-xl font-mono text-white">{pool.currentTick}</p>
+                  <p className="text-xl font-mono text-white break-all">{pool.currentTick}</p>
                 </div>
                 <div className="glass-card rounded-lg p-4 border border-white/10">
                   <p className="text-sm text-white/70 mb-1">Pool Address</p>
-                  <p className="text-xs font-mono text-white/70 truncate">
+                  <p className="text-xs font-mono text-white/70 break-all">
                     {pool.address}
                   </p>
                 </div>

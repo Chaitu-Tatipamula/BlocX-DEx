@@ -8,15 +8,16 @@ import { PoolDetails } from '@/types/pool'
 import { formatBalance } from '@/lib/utils'
 import { formatPrice } from '@/lib/positionAnalysis'
 import { Loader2, Plus, RefreshCw } from 'lucide-react'
+import { useTx } from '@/context/tx'
 
 export default function PoolsPage() {
   const { isConnected } = useAccount()
   const publicClient = usePublicClient()
 
+  const { addError } = useTx()
   const [pools, setPools] = useState<PoolDetails[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isRefreshing, setIsRefreshing] = useState(false)
-  const [error, setError] = useState<string | null>(null)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
 
   const fetchPools = async (isRefresh = false) => {
@@ -27,7 +28,6 @@ export default function PoolsPage() {
     } else {
       setIsLoading(true)
     }
-    setError(null)
 
     try {
       const poolService = new PoolService(publicClient)
@@ -36,7 +36,7 @@ export default function PoolsPage() {
       setLastUpdated(new Date())
     } catch (err) {
       console.error('Error fetching pools:', err)
-      setError('Failed to load pools')
+      addError({ title: 'Failed to Load Pools', message: err instanceof Error ? err.message : 'Failed to load pools' })
     } finally {
       setIsLoading(false)
       setIsRefreshing(false)
@@ -110,17 +110,9 @@ export default function PoolsPage() {
             </div>
           )}
 
-          {/* Error State */}
-          {error && !isLoading && (
-            <div className="text-center py-12">
-              <div className="text-red-400 glass-card border border-red-500/30 p-4 rounded-lg inline-block">
-                {error}
-              </div>
-            </div>
-          )}
 
           {/* Empty State */}
-          {!isLoading && !error && pools.length === 0 && (
+          {!isLoading && pools.length === 0 && (
             <div className="text-center py-12">
               <div className="text-gray-400 mb-4">
                 <svg
@@ -148,7 +140,7 @@ export default function PoolsPage() {
           )}
 
           {/* Pools Grid */}
-          {!isLoading && !error && pools.length > 0 && (
+          {!isLoading && pools.length > 0 && (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {pools.map((pool, index) => (
                 <div
@@ -219,19 +211,19 @@ export default function PoolsPage() {
                   <div className="space-y-2 mb-4">
                     <div className="flex justify-between text-sm">
                       <span className="text-white/70">Current Price:</span>
-                      <span className="font-medium text-white">
+                      <span className="font-medium text-white break-words overflow-wrap-anywhere text-right">
                         {formatPrice(pool.currentPrice)}
                       </span>
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-white/70">Liquidity:</span>
-                      <span className="font-medium text-white">
+                      <span className="font-medium text-white break-words overflow-wrap-anywhere text-right">
                         {formatBalance(pool.liquidity)}
                       </span>
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-white/70">Current Tick:</span>
-                      <span className="font-mono text-xs text-white/80">
+                      <span className="font-mono text-xs text-white/80 break-all">
                         {pool.currentTick}
                       </span>
                     </div>
@@ -258,7 +250,7 @@ export default function PoolsPage() {
           )}
 
           {/* Pool Count */}
-          {!isLoading && !error && pools.length > 0 && (
+          {!isLoading && pools.length > 0 && (
             <div className="mt-6 text-center text-sm text-white/60">
               Showing {pools.length} {pools.length === 1 ? 'pool' : 'pools'}
             </div>

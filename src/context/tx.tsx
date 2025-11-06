@@ -2,15 +2,18 @@ import React, { createContext, useCallback, useContext, useEffect, useState } fr
 
 export type TxRecord = {
   id: string;
-  hash: string;
+  hash?: string;
   title?: string;
   explorer?: string; // base url like https://etherscan.io/tx
   timestamp: number;
+  type?: 'success' | 'error';
+  message?: string;
 };
 
 type TxContextValue = {
   txs: TxRecord[];
   addTx: (tx: { hash: string; title?: string; explorer?: string }) => void;
+  addError: (error: { title?: string; message: string }) => void;
   removeTx: (id: string) => void;
 };
 
@@ -40,6 +43,19 @@ export const TxProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       title: tx.title,
       explorer: tx.explorer,
       timestamp: Date.now(),
+      type: 'success',
+    };
+    setTxs((s) => [record, ...s].slice(0, 8)); // keep recent 8
+  }, []);
+
+  const addError = useCallback((error: { title?: string; message: string }) => {
+    const id = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+    const record: TxRecord = {
+      id,
+      title: error.title || 'Error',
+      message: error.message,
+      timestamp: Date.now(),
+      type: 'error',
     };
     setTxs((s) => [record, ...s].slice(0, 8)); // keep recent 8
   }, []);
@@ -48,7 +64,7 @@ export const TxProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     setTxs((s) => s.filter((t) => t.id !== id));
   }, []);
 
-  return <TxContext.Provider value={{ txs, addTx, removeTx }}>{children}</TxContext.Provider>;
+  return <TxContext.Provider value={{ txs, addTx, addError, removeTx }}>{children}</TxContext.Provider>;
 };
 
 export function useTx() {

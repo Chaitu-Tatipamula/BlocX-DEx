@@ -22,7 +22,7 @@ export function LiquidityCard() {
   const { address, isConnected } = useAccount()
   const publicClient = usePublicClient()
   const { data: walletClient } = useWalletClient()
-  const { addTx } = useTx()
+  const { addTx, addError } = useTx()
 
   // State
   const [tokenA, setTokenA] = useState<Token | null>(tokens.WBCX)
@@ -35,7 +35,6 @@ export function LiquidityCard() {
   const [currentPrice, setCurrentPrice] = useState<number | null>(null) // FIX: null initially
   const [isLoading, setIsLoading] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
-  const [error, setError] = useState('')
   const [showSettings, setShowSettings] = useState(false)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
   const [slippage, setSlippage] = useState(0.5)
@@ -270,7 +269,7 @@ export function LiquidityCard() {
 
   const handleAddLiquidity = async () => {
     if (!address || !walletClient || !publicClient || !tokenA || !tokenB) {
-      setError('Please connect your wallet')
+      addError({ title: 'Wallet Not Connected', message: 'Please connect your wallet' })
       return
     }
 
@@ -279,30 +278,29 @@ export function LiquidityCard() {
     const amountBNum = parseFloat(amountB) || 0
     
     if (amountANum <= 0 && amountBNum <= 0) {
-      setError('Please enter valid amounts (at least one token must be > 0)')
+      addError({ title: 'Invalid Amounts', message: 'Please enter valid amounts (at least one token must be > 0)' })
       return
     }
 
     if (minTick >= maxTick) {
-      setError('Invalid price range')
+      addError({ title: 'Invalid Price Range', message: 'Invalid price range' })
       return
     }
 
     // Check if using native BCX token (not allowed for pools)
     if (tokenA?.symbol === 'BCX' || tokenB?.symbol === 'BCX') {
-      setError('Cannot create pools with native BCX. Please use WBCX (Wrapped BCX) instead.')
+      addError({ title: 'Invalid Token', message: 'Cannot create pools with native BCX. Please use WBCX (Wrapped BCX) instead.' })
       return
     }
 
     // Check if token addresses are valid
     if (tokenA?.address === '0x0000000000000000000000000000000000000000' || 
         tokenB?.address === '0x0000000000000000000000000000000000000000') {
-      setError('Invalid token address. Please select valid tokens.')
+      addError({ title: 'Invalid Token Address', message: 'Invalid token address. Please select valid tokens.' })
       return
     }
 
     setIsLoading(true)
-    setError('')
 
     try {
       // Handle one-sided positions (one amount can be 0)
@@ -636,7 +634,7 @@ export function LiquidityCard() {
         }
       }
       
-      setError(errorMessage)
+      addError({ title: 'Failed to Add Liquidity', message: errorMessage })
     } finally {
       setIsLoading(false)
     }
@@ -849,19 +847,6 @@ export function LiquidityCard() {
         </div>
             </div>
 
-        {/* Error Message */}
-        {error && (
-              <div className="text-sm text-red-400 glass-card border border-red-500/30 p-2 rounded flex items-center justify-between gap-2">
-                <span className="flex-1 truncate">{error}</span>
-                <button
-                  onClick={() => setError('')}
-                  className="text-red-300 hover:text-red-200 font-medium text-xs shrink-0"
-                  title="Dismiss error"
-                >
-                  ✕
-                </button>
-          </div>
-        )}
 
         {/* Add Liquidity Button */}
         <button

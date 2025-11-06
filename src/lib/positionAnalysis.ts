@@ -313,10 +313,27 @@ export function calculateLiquidityAmounts(
     finalAmount1 = liquidity * (sqrtPriceCurrent - sqrtPriceLower)
   }
 
+  // Helper to convert to fixed decimal string without scientific notation
+  const toFixedDecimal = (num: number, maxDecimals: number = 18): string => {
+    if (num === 0) return '0'
+    if (num < 0) return '0' // Don't allow negative
+    
+    // For extremely small numbers (less than 1e-10), treat as 0 to avoid precision issues
+    // This prevents issues with viem parseUnits which doesn't accept scientific notation
+    if (Math.abs(num) < 1e-10) return '0'
+    
+    // For very small numbers, use toFixed with enough precision
+    // This prevents scientific notation
+    const fixed = num.toFixed(maxDecimals)
+    // Remove trailing zeros but keep at least one decimal place if needed
+    const cleaned = fixed.replace(/\.?0+$/, '')
+    return cleaned || '0'
+  }
+
   return {
-    amount0: Math.max(0, finalAmount0).toFixed(18),
-    amount1: Math.max(0, finalAmount1).toFixed(18),
-    liquidity: Math.max(0, liquidity).toFixed(18),
+    amount0: toFixedDecimal(Math.max(0, finalAmount0)),
+    amount1: toFixedDecimal(Math.max(0, finalAmount1)),
+    liquidity: toFixedDecimal(Math.max(0, liquidity)),
   }
 }
 

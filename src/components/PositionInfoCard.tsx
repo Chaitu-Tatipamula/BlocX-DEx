@@ -13,6 +13,7 @@ interface PositionInfoCardProps {
   onIncrease?: (tokenId: string) => void
   onRemove?: (tokenId: string) => void
   isLoading?: boolean
+  loadingType?: 'collect' | 'remove' | 'increase'
   showActions?: boolean
 }
 
@@ -22,6 +23,7 @@ export function PositionInfoCard({
   onIncrease,
   onRemove,
   isLoading,
+  loadingType,
   showActions = true,
 }: PositionInfoCardProps) {
   const statusBadge = getPositionStatusBadge(position.inRange)
@@ -197,7 +199,14 @@ export function PositionInfoCard({
               disabled={isLoading || !hasFees}
               className="glass-button-primary flex-1 px-3 py-2 text-sm font-medium rounded-xl disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Collect
+              {isLoading && loadingType === 'collect' ? (
+                <div className="flex items-center justify-center gap-1">
+                  <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  <span>Collecting...</span>
+                </div>
+              ) : (
+                'Collect'
+              )}
             </button>
           )}
           {onIncrease && (
@@ -223,7 +232,14 @@ export function PositionInfoCard({
               disabled={isLoading}
               className="glass-button-primary flex-1 px-3 py-2 text-sm font-medium rounded-xl disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Remove
+              {isLoading && loadingType === 'remove' ? (
+                <div className="flex items-center justify-center gap-1">
+                  <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  <span>Removing...</span>
+                </div>
+              ) : (
+                'Remove'
+              )}
             </button>
           )}
         </div>

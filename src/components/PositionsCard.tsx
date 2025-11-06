@@ -23,11 +23,10 @@ export function PositionsCard() {
   const { address, isConnected } = useAccount()
   const publicClient = usePublicClient()
   const { data: walletClient } = useWalletClient()
-  const { addTx } = useTx()
+  const { addTx, addError } = useTx()
 
   const [positions, setPositions] = useState<LiquidityPosition[]>([])
   const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState('')
   const [increasingPosition, setIncreasingPosition] = useState<string | null>(null)
   const [increaseAmount0, setIncreaseAmount0] = useState('')
   const [increaseAmount1, setIncreaseAmount1] = useState('')
@@ -36,13 +35,12 @@ export function PositionsCard() {
     if (!address || !publicClient) return
 
     setIsLoading(true)
-    setError('')
 
     try {
       const userPositions = await getLiquidityPositions(publicClient, address)
       setPositions(userPositions)
     } catch (err: any) {
-      setError('Failed to fetch positions')
+      addError({ title: 'Failed to Fetch Positions', message: 'Failed to fetch positions' })
       console.error('Error fetching positions:', err)
     } finally {
       setIsLoading(false)
@@ -55,18 +53,17 @@ export function PositionsCard() {
 
   const handleIncreaseLiquidity = async (tokenId: string) => {
     if (!address || !walletClient || !publicClient) {
-      setError('Please connect your wallet')
+      addError({ title: 'Wallet Not Connected', message: 'Please connect your wallet' })
       return
     }
 
     if (!increaseAmount0 || !increaseAmount1) {
-      setError('Please enter amounts for both tokens')
+      addError({ title: 'Invalid Amounts', message: 'Please enter amounts for both tokens' })
       return
     }
 
     try {
       setIncreasingPosition(tokenId)
-      setError('')
 
       const hash = await increaseLiquidity(walletClient, publicClient, {
         tokenId,
@@ -90,14 +87,14 @@ export function PositionsCard() {
       fetchPositions()
       
     } catch (err: any) {
-      setError(err.message || 'Failed to increase liquidity')
+      addError({ title: 'Failed to Increase Liquidity', message: err.message || 'Failed to increase liquidity' })
       setIncreasingPosition(null)
     }
   }
 
   const handleRemoveLiquidity = async (tokenId: string) => {
     if (!address || !walletClient || !publicClient) {
-      setError('Please connect your wallet')
+      addError({ title: 'Wallet Not Connected', message: 'Please connect your wallet' })
       return
     }
 
@@ -105,7 +102,7 @@ export function PositionsCard() {
       // Find the position to get its liquidity amount
       const position = positions.find(p => p.tokenId === tokenId)
       if (!position) {
-        setError('Position not found')
+        addError({ title: 'Position Not Found', message: 'Position not found' })
         return
       }
 
@@ -130,7 +127,7 @@ export function PositionsCard() {
       fetchPositions()
       
     } catch (err: any) {
-      setError(err.message || 'Failed to remove liquidity')
+      addError({ title: 'Failed to Remove Liquidity', message: err.message || 'Failed to remove liquidity' })
     }
   }
 
@@ -269,13 +266,6 @@ export function PositionsCard() {
                 )}
               </div>
             ))}
-          </div>
-        )}
-
-        {/* Error Message */}
-        {error && (
-              <div className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 p-2 rounded-lg truncate glass-card">
-            {error}
           </div>
         )}
       </div>

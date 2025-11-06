@@ -65,6 +65,10 @@ const POOL_ABI = [
   },
 ] as const
 
+// Simple in-memory cache for pool details (cleared on page refresh)
+const poolDetailsCache = new Map<string, PoolDetails | null>()
+const POOL_CACHE_TTL = 30000 // 30 seconds
+
 export class PoolService {
   constructor(
     private publicClient: any,
@@ -110,10 +114,20 @@ export class PoolService {
     token1Address: string,
     fee: number
   ): Promise<PoolDetails | null> {
+    // Check cache first
+    const cacheKey = `${token0Address.toLowerCase()}-${token1Address.toLowerCase()}-${fee}`
+    const cached = poolDetailsCache.get(cacheKey)
+    if (cached !== undefined) {
+      return cached
+    }
+
     try {
       const poolAddress = await this.getPoolAddress(token0Address, token1Address, fee)
 
       if (poolAddress === '0x0000000000000000000000000000000000000000') {
+        poolDetailsCache.set(cacheKey, null)
+        // Clear cache after TTL
+        setTimeout(() => poolDetailsCache.delete(cacheKey), POOL_CACHE_TTL)
         return null
       }
 
@@ -177,7 +191,7 @@ export class PoolService {
       const rawPrice = sqrtPriceX96ToPrice(sqrtPriceX96)
       const currentPrice = rawPrice * Math.pow(10, token0.decimals - token1.decimals)
 
-      return {
+      const poolDetails: PoolDetails = {
         address: poolAddress,
         token0,
         token1,
@@ -188,8 +202,18 @@ export class PoolService {
         sqrtPriceX96,
         tickSpacing: Number(tickSpacing),
       }
+
+      // Cache the result
+      poolDetailsCache.set(cacheKey, poolDetails)
+      // Clear cache after TTL
+      setTimeout(() => poolDetailsCache.delete(cacheKey), POOL_CACHE_TTL)
+
+      return poolDetails
     } catch (error) {
       console.error('Error getting pool details:', error)
+      // Cache null result to avoid repeated failed requests
+      poolDetailsCache.set(cacheKey, null)
+      setTimeout(() => poolDetailsCache.delete(cacheKey), POOL_CACHE_TTL)
       return null
     }
   }
@@ -199,28 +223,74 @@ export class PoolService {
    * In production, you'd use subgraph or events to discover all pools
    */
   async getAllPools(): Promise<PoolDetails[]> {
-    const pools: PoolDetails[] = []
     const tokenList = Object.values(tokens)
     const fees = [100, 500, 2500, 10000]
 
-    // Check all combinations of tokens and fees
+    // Step 1: Batch fetch all pool addresses first (much faster)
+    const poolAddressPromises: Array<{ i: number; j: number; fee: number; promise: Promise<string> }> = []
     for (let i = 0; i < tokenList.length; i++) {
       for (let j = i + 1; j < tokenList.length; j++) {
         for (const fee of fees) {
-          try {
-            const pool = await this.getPoolDetails(
-              tokenList[i].address,
-              tokenList[j].address,
-              fee
-            )
-            if (pool) {
-              pools.push(pool)
-            }
-          } catch (error) {
-            // Pool doesn't exist or error reading, skip
-            continue
-          }
+          poolAddressPromises.push({
+            i,
+            j,
+            fee,
+            promise: this.getPoolAddress(tokenList[i].address, tokenList[j].address, fee).catch(() => '0x0000000000000000000000000000000000000000')
+          })
         }
+      }
+    }
+
+    // Execute all address checks in parallel with batching
+    const BATCH_SIZE = 50 // Can handle more address checks in parallel
+    const existingPools: Array<{ token0: string; token1: string; fee: number }> = []
+    
+    for (let i = 0; i < poolAddressPromises.length; i += BATCH_SIZE) {
+      const batch = poolAddressPromises.slice(i, i + BATCH_SIZE)
+      const addresses = await Promise.all(batch.map(p => p.promise))
+      
+      addresses.forEach((address, idx) => {
+        if (address !== '0x0000000000000000000000000000000000000000') {
+          const { i, j, fee } = batch[idx]
+          existingPools.push({
+            token0: tokenList[i].address,
+            token1: tokenList[j].address,
+            fee
+          })
+        }
+      })
+      
+      // Small delay between batches
+      if (i + BATCH_SIZE < poolAddressPromises.length) {
+        await new Promise(resolve => setTimeout(resolve, 30))
+      }
+    }
+
+    // Step 2: Only fetch details for pools that exist (much fewer requests)
+    // IMPORTANT: Create promises lazily (as functions) to avoid flooding RPC
+    const poolDetailFunctions = existingPools.map(({ token0, token1, fee }) => 
+      () => this.getPoolDetails(token0, token1, fee).catch(() => null)
+    )
+
+    // Execute pool detail fetches in smaller batches - LAZY EXECUTION
+    const DETAIL_BATCH_SIZE = 5 // Reduced batch size to prevent flooding
+    const pools: PoolDetails[] = []
+    
+    for (let i = 0; i < poolDetailFunctions.length; i += DETAIL_BATCH_SIZE) {
+      const batch = poolDetailFunctions.slice(i, i + DETAIL_BATCH_SIZE)
+      // Only create promises when we're ready to execute this batch
+      const batchPromises = batch.map(fn => fn())
+      const results = await Promise.allSettled(batchPromises)
+      
+      results.forEach((result) => {
+        if (result.status === 'fulfilled' && result.value) {
+          pools.push(result.value)
+        }
+      })
+      
+      // Delay between batches to prevent RPC flooding
+      if (i + DETAIL_BATCH_SIZE < poolDetailFunctions.length) {
+        await new Promise(resolve => setTimeout(resolve, 100)) // Increased delay
       }
     }
 

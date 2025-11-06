@@ -18,7 +18,7 @@ export function SwapCard() {
   const { address, isConnected } = useAccount()
   const publicClient = usePublicClient()
   const { data: walletClient } = useWalletClient()
-    const { addTx } = useTx()
+  const { addTx, addError } = useTx()
 
   // State
   const [tokenIn, setTokenIn] = useState<Token | null>(tokens.BCX)
@@ -31,7 +31,6 @@ export function SwapCard() {
   const [fee, setFee] = useState('0.05%')
   const [isLoading, setIsLoading] = useState(false)
   const [isQuoteLoading, setIsQuoteLoading] = useState(false)
-  const [error, setError] = useState('')
   const [showSettings, setShowSettings] = useState(false)
   const [showDetails, setShowDetails] = useState(false)
   const [slippage, setSlippage] = useState(DEFAULT_SLIPPAGE)
@@ -136,12 +135,10 @@ export function SwapCard() {
         setMinimumReceived(amountIn)
         setExchangeRate('1.00')
         setFee('0%')
-        setError('')
         return
       }
 
       setIsQuoteLoading(true)
-      setError('')
 
       try {
         const quote = await getQuote(
@@ -162,7 +159,7 @@ export function SwapCard() {
         // Calculate fee (simplified - in real implementation, get from pool)
         setFee('0.05%')
       } catch (err) {
-        setError('Failed to get quote')
+        addError({ title: 'Failed to Get Quote', message: 'Failed to get swap quote. Please try again.' })
         setAmountOut('')
         setPriceImpact(0)
         setMinimumReceived('')
@@ -207,17 +204,16 @@ export function SwapCard() {
 
   const handleSwap = async () => {
     if (!address || !walletClient || !publicClient || !tokenIn || !tokenOut) {
-      setError('Please connect your wallet')
+      addError({ title: 'Wallet Not Connected', message: 'Please connect your wallet' })
       return
     }
 
     if (!amountIn || parseFloat(amountIn) <= 0) {
-      setError('Please enter a valid amount')
+      addError({ title: 'Invalid Amount', message: 'Please enter a valid amount' })
       return
     }
 
     setIsLoading(true)
-    setError('')
 
     try {
       // Check if this is a wrap/unwrap operation
@@ -294,7 +290,7 @@ export function SwapCard() {
       fetchBalances()
       
     } catch (err: any) {
-      setError(err.message || 'Operation failed')
+      addError({ title: 'Swap Failed', message: err.message || 'Operation failed' })
     } finally {
       setIsLoading(false)
     }
@@ -480,19 +476,6 @@ export function SwapCard() {
           </div>
         )}
 
-        {/* Error Message */}
-        {error && (
-          <div className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 p-2 rounded-lg flex items-center justify-between gap-2 glass-card">
-            <span className="flex-1 truncate">{error}</span>
-            <button
-              onClick={() => setError('')}
-              className="text-red-400 hover:text-red-300 font-medium text-xs shrink-0"
-              title="Dismiss error"
-            >
-              ✕
-            </button>
-          </div>
-        )}
 
         {/* Swap Info and Button */}
         <div className="space-y-2">

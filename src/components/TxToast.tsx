@@ -29,7 +29,12 @@ function TxItem({ tx, onClose }: { tx: TxRecord; onClose: () => void }) {
   const progressRef = useRef<NodeJS.Timeout | null>(null);
   const startTimeRef = useRef<number>(Date.now());
 
-  const explorerLink = tx.explorer ? `${tx.explorer.replace(/\/$/, "")}/${tx.hash}` : `https://explorer-evm.blockxnet.com/tx/${tx.hash}`;
+  const isError = tx.type === 'error';
+  const explorerLink = tx.hash && tx.explorer 
+    ? `${tx.explorer.replace(/\/$/, "")}/${tx.hash}` 
+    : tx.hash 
+    ? `https://explorer-evm.blockxnet.com/tx/${tx.hash}` 
+    : null;
 
   useEffect(() => {
     // Slide in animation
@@ -63,12 +68,16 @@ function TxItem({ tx, onClose }: { tx: TxRecord; onClose: () => void }) {
   }, [onClose]);
 
   const copyHash = async () => {
-    try { await navigator.clipboard.writeText(tx.hash); } catch {}
+    if (tx.hash) {
+      try { await navigator.clipboard.writeText(tx.hash); } catch {}
+    }
   };
 
   return (
     <div
-      className={`glass-card border border-white/10 rounded-xl shadow-2xl p-4 relative toast-slide-in ${
+      className={`glass-card border ${
+        isError ? 'border-red-500/30' : 'border-white/10'
+      } rounded-xl shadow-2xl p-4 relative toast-slide-in ${
         isVisible
           ? 'translate-x-0 opacity-100'
           : 'translate-x-full opacity-0'
@@ -77,7 +86,9 @@ function TxItem({ tx, onClose }: { tx: TxRecord; onClose: () => void }) {
       {/* Progress Bar */}
       <div className="absolute top-0 left-0 right-0 h-1 bg-black/20 rounded-t-xl overflow-hidden">
         <div
-          className="h-full bg-white transition-all duration-50 ease-linear"
+          className={`h-full transition-all duration-50 ease-linear ${
+            isError ? 'bg-red-500' : 'bg-white'
+          }`}
           style={{ width: `${progress}%` }}
         />
       </div>
@@ -85,34 +96,52 @@ function TxItem({ tx, onClose }: { tx: TxRecord; onClose: () => void }) {
       <div className="flex items-start gap-3 pt-1">
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between gap-3">
-            <div className="text-sm font-medium text-white truncate">{tx.title ?? "Transaction submitted"}</div>
+            <div className={`text-sm font-medium truncate ${
+              isError ? 'text-red-300' : 'text-white'
+            }`}>
+              {tx.title ?? (isError ? "Error" : "Transaction submitted")}
+            </div>
             <div className="text-xs text-white/60">{formatTime(tx.timestamp)}</div>
           </div>
 
-          <div className="mt-2 text-xs text-white/70 break-all font-mono">
-            <a className="text-blue-400 hover:text-blue-300 hover:underline transition-colors" href={explorerLink} target="_blank" rel="noopener noreferrer">
-              {tx.hash}
-            </a>
-          </div>
+          {isError ? (
+            <div className="mt-2 text-xs text-red-200 break-words overflow-wrap-anywhere">
+              {tx.message || 'An error occurred'}
+            </div>
+          ) : tx.hash ? (
+            <div className="mt-2 text-xs text-white/70 break-all font-mono">
+              <a className="text-blue-400 hover:text-blue-300 hover:underline transition-colors" href={explorerLink || undefined} target="_blank" rel="noopener noreferrer">
+                {tx.hash}
+              </a>
+            </div>
+          ) : null}
 
           <div className="mt-3 flex gap-2">
-            <button
-              onClick={copyHash}
-              className="glass-button text-xs px-3 py-1.5 rounded-lg text-white hover:bg-white/30 transition-all"
-            >
-              Copy
-            </button>
-            <a
-              className="glass-button-primary text-xs px-3 py-1.5 rounded-lg hover:opacity-90 transition-all"
-              href={explorerLink}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              View
-            </a>
+            {!isError && tx.hash && (
+              <>
+                <button
+                  onClick={copyHash}
+                  className="glass-button text-xs px-3 py-1.5 rounded-lg text-white hover:bg-white/30 transition-all"
+                >
+                  Copy
+                </button>
+                {explorerLink && (
+                  <a
+                    className="glass-button-primary text-xs px-3 py-1.5 rounded-lg hover:opacity-90 transition-all"
+                    href={explorerLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    View
+                  </a>
+                )}
+              </>
+            )}
             <button
               onClick={onClose}
-              className="ml-auto text-xs px-3 py-1.5 text-white/70 hover:text-white transition-colors"
+              className={`ml-auto text-xs px-3 py-1.5 transition-colors ${
+                isError ? 'text-red-300/70 hover:text-red-300' : 'text-white/70 hover:text-white'
+              }`}
             >
               Close
             </button>

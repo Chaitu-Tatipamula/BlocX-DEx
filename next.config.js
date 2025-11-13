@@ -1,5 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Enable standalone output for Docker
+  output: 'standalone',
  
   // Use webpack for development and production to avoid turbopack conflicts
   webpack: (config) => {
